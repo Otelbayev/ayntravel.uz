@@ -1,0 +1,437 @@
+@import 'tailwindcss';
+
+/* ─────────────────────────────────────────────────────────────
+   AYN TRAVEL dizayn tizimi
+
+   Sayt yorug' (oq) temada, lekin brend tili saqlanadi: hero,
+   statistika va footer — to'q navy bloklar. Ranglar kompaniyaning
+   Instagram posterlaridan olingan (navy + oltin + qizil).
+
+   QOIDA: komponentlar rangni HECH QACHON qattiq yozmaydi
+   (`text-white`, `bg-navy-800` emas). Faqat semantik tokenlar:
+   `text-ink`, `bg-surface`, `border-subtle`. Shu tufayli bitta
+   komponent oq fonda ham, to'q blokda ham to'g'ri ko'rinadi.
+   ───────────────────────────────────────────────────────────── */
+
+@theme {
+  /* ── Brend ranglari (o'zgarmas) ── */
+  --color-navy-950: #050f22;
+  --color-navy-900: #071630;
+  --color-navy-800: #0b1e3a;
+  --color-navy-700: #12294b;
+  --color-navy-600: #1b3660;
+  --color-navy-500: #264678;
+
+  --color-gold-500: #d4af37;
+  --color-gold-400: #e5c158;
+  --color-gold-300: #f5c842;
+  --color-gold-200: #f7d97a;
+
+  /*
+   * Oq fonda oltin matn uchun. #D4AF37 oq fonda kontrasti atigi ~2.1:1 —
+   * WCAG minimumidan ancha past va kichik matn o'qilmaydi. Bu chuqurlashtirilgan
+   * variant oq fonda ~4.9:1 beradi, ya'ni AA talabini qondiradi.
+   */
+  --color-gold-ink: #8a6a15;
+
+  --color-hot-600: #a50d24;
+  --color-hot-500: #c8102e;
+  --color-hot-400: #e12742;
+
+  --color-success: #0f7a4a;
+  --color-success-soft: #e6f4ed;
+
+  /* ── Semantik tokenlar (yorug' tema — sukut bo'yicha) ── */
+  --color-paper: #ffffff;
+  --color-paper-soft: #f5f7fa;
+
+  --color-surface: var(--color-paper);
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: var(--color-paper-soft);
+
+  --color-ink: #0b1e3a;
+  --color-ink-muted: #4a5a72;
+  /*
+   * Eng och matn rangi. #7c8a9f oq fonda atigi 3.5:1 berardi — yordamchi
+   * izohlar va maydon tavsiflari uchun bu yetarli emas (WCAG AA 4.5:1 talab
+   * qiladi). #5f6e87 oq fonda 5.2:1, kulrang fonda 4.8:1 beradi va brend
+   * navy ohangini saqlaydi.
+   */
+  --color-ink-subtle: #5f6e87;
+
+  /* Aksent — joriy fonda o'qiladigan oltin */
+  --color-accent: var(--color-gold-ink);
+
+  --color-line: rgb(11 30 58 / 0.10);
+  --color-line-strong: rgb(11 30 58 / 0.18);
+
+  /* Yumshoq soyalar — oq fonda chuqurlik chegara o'rniga soya bilan beriladi */
+  --shadow-card: 0 1px 2px rgb(11 30 58 / 0.04), 0 8px 24px -12px rgb(11 30 58 / 0.12);
+  --shadow-card-hover: 0 2px 4px rgb(11 30 58 / 0.06), 0 16px 40px -16px rgb(11 30 58 / 0.22);
+
+  /* ── Shriftlar — ikkalasi kirill va lotinni to'liq qoplaydi ── */
+  --font-display: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Instagram poster nisbati — tur kartochkalarining asosiy formati */
+  --aspect-poster: 4 / 5;
+
+  --radius-card: 1.25rem;
+  --radius-pill: 999px;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/*
+ * ── TO'Q BLOKLAR ──────────────────────────────────────────────
+ *
+ * `data-tone="dark"` qo'yilgan element ichida semantik tokenlar
+ * teskarisiga almashadi. Shu tufayli hero, statistika va footer to'q
+ * bo'lishi uchun ularning ichidagi komponentlarni qayta yozish shart emas —
+ * `text-ink` avtomatik oq, `border-subtle` avtomatik yorug' bo'ladi.
+ *
+ * Qatlamdan tashqarida (unlayered) yozilgan: Tailwind'ning `theme`
+ * qatlamidan ustun turishi kafolatlanadi.
+ */
+[data-tone='dark'] {
+  --color-surface: var(--color-navy-900);
+  --color-surface-raised: var(--color-navy-800);
+  --color-surface-sunken: var(--color-navy-950);
+
+  --color-ink: #ffffff;
+  --color-ink-muted: #a8b6cc;
+  --color-ink-subtle: #7d8faa;
+
+  /* To'q fonda yorqin oltin to'liq o'qiladi */
+  --color-accent: var(--color-gold-300);
+
+  --color-line: rgb(255 255 255 / 0.10);
+  --color-line-strong: rgb(255 255 255 / 0.20);
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --shadow-card-hover: 0 2px 8px rgb(0 0 0 / 0.4), 0 16px 40px -16px rgb(0 0 0 / 0.6);
+
+  color-scheme: dark;
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+}
+
+:root {
+  color-scheme: light;
+}
+
+/* ── Bazaviy qatlam ────────────────────────────────────────── */
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    /* Lenis silliq scrollni o'z zimmasiga oladi; native smooth bilan
+       birga ishlatilsa ikkalasi qarama-qarshi ishlab, siljish "sakraydi". */
+    scroll-behavior: auto;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /*
+   * Editorial tipografika shkalasi.
+   * `clamp()` — media so'rovlarsiz uzluksiz moslashuv: mobil'da ixcham,
+   * katta ekranda jurnal sarlavhasidek yirik.
+   */
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    text-wrap: balance;
+    color: var(--color-ink);
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Klaviatura bilan yuruvchilar uchun ko'rinadigan fokus halqasi */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background-color: var(--color-gold-500);
+    color: var(--color-navy-950);
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--color-paper-soft); }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(11 30 58 / 0.18);
+    border-radius: 999px;
+    border: 2px solid var(--color-paper-soft);
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(11 30 58 / 0.30); }
+}
+
+/* ── Komponent yordamchilari ───────────────────────────────── */
+
+@layer components {
+  /* Editorial o'lchamlar — bosh sahifadagi katta sarlavhalar uchun */
+  .type-display {
+    font-size: clamp(2.75rem, 7vw, 5.5rem);
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+  }
+
+  .type-h2 {
+    font-size: clamp(1.875rem, 4vw, 3.25rem);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+
+  .type-lead {
+    font-size: clamp(1rem, 1.6vw, 1.25rem);
+    line-height: 1.6;
+    color: var(--color-ink-muted);
+  }
+
+  /* Bo'lim ustidagi kichik yorliq — "GORYASHIY TURLAR" kabi */
+  .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+  }
+
+  /*
+   * Oltin gradientli matn — posterlardagi narx uslubi.
+   * Faqat TO'Q fonda ishlatiladi: oq fonda yorqin oltin o'qilmaydi.
+   */
+  .text-gold-gradient {
+    background: linear-gradient(
+      135deg,
+      var(--color-gold-200) 0%,
+      var(--color-gold-500) 45%,
+      var(--color-gold-300) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Kartochka ustidagi gradient — poster ustidagi matn o'qilishi uchun.
+     Poster har doim to'q, shuning uchun bu temaga bog'liq emas. */
+  .overlay-gradient {
+    background: linear-gradient(
+      to top,
+      rgb(5 15 34 / 0.95) 0%,
+      rgb(5 15 34 / 0.75) 25%,
+      rgb(5 15 34 / 0.15) 60%,
+      transparent 100%
+    );
+  }
+
+  .card-surface {
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Oltin ramka effekti — narx bloklarida */
+  .gold-ring {
+    box-shadow:
+      0 0 0 1px rgb(212 175 55 / 0.45),
+      0 12px 32px -16px rgb(212 175 55 / 0.4);
+  }
+
+  .container-page {
+    width: 100%;
+    margin-inline: auto;
+    padding-inline: 1rem;
+    max-width: 80rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-page { padding-inline: 1.5rem; }
+  }
+  @media (min-width: 1024px) {
+    .container-page { padding-inline: 2rem; }
+  }
+
+  /* Gorizontal tasmalarda scrollbar'ni yashirish (rail, filtrlar) */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+}
+
+/* ── Animatsiyalar ─────────────────────────────────────────── */
+
+@layer utilities {
+  /* Yorug'lik yugurishi — "goryashiy" bejlarida */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .animate-shimmer {
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+
+  /* Pulsatsiya — CTA tugmalari diqqatni tortishi uchun */
+  @keyframes pulse-gold {
+    0%, 100% { box-shadow: 0 0 0 0 rgb(212 175 55 / 0.5); }
+    50% { box-shadow: 0 0 0 12px rgb(212 175 55 / 0); }
+  }
+
+  .animate-pulse-gold {
+    animation: pulse-gold 2.5s ease-out infinite;
+  }
+
+  /*
+   * Narx tasmasi (marquee). Kontent ikki marta takrorlanadi va -50%
+   * ga suriladi — shu tufayli aylanish uzluksiz ko'rinadi.
+   * `transform` bilan ishlaydi, ya'ni layout qayta hisoblanmaydi.
+   */
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  .animate-marquee {
+    animation: marquee var(--marquee-duration, 40s) linear infinite;
+  }
+}
+
+/*
+ * Harakatni kamaytirish so'ralganda BARCHA animatsiya o'chadi.
+ * Bu shunchaki "yaxshi amaliyot" emas: vestibulyar buzilishi bor
+ * foydalanuvchilar uchun parallaks va scroll animatsiyalari
+ * bosh aylanishiga sabab bo'ladi.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Marquee to'xtaganda kontent boshida turishi kerak, yarim surilgan holatda emas */
+  .animate-marquee {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/*
+ * Radix Accordion balandlikni `--radix-accordion-content-height` ga yozadi.
+ * Shu tufayli `height: auto` ni animatsiya qilish muammosi chetlab o'tiladi.
+ */
+@keyframes acc-down {
+  from { height: 0; opacity: 0; }
+  to { height: var(--radix-accordion-content-height); opacity: 1; }
+}
+
+@keyframes acc-up {
+  from { height: var(--radix-accordion-content-height); opacity: 1; }
+  to { height: 0; opacity: 0; }
+}
+
+/* Toast — o'ngdan sirg'alib chiqadi */
+@keyframes toast-in {
+  from { transform: translateX(110%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes toast-out {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(110%); opacity: 0; }
+}
+
+/* Dialog — markazda yumshoq paydo bo'ladi */
+@keyframes dialog-in {
+  from { transform: translate(-50%, -48%) scale(0.96); opacity: 0; }
+  to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/*
+ * Admin panelning muharriridan kelgan HTML uchun uslublar.
+ * Tailwind bazaviy qatlami barcha teglarni tozalab tashlaydi, shuning uchun
+ * sarlavha/ro'yxat/havola ko'rinishini shu yerda qaytadan beramiz.
+ */
+.prose-tour {
+  color: var(--color-ink-muted);
+  line-height: 1.75;
+}
+.prose-tour > * + * { margin-top: 1rem; }
+.prose-tour h2 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-ink);
+  margin-top: 2rem;
+}
+.prose-tour h3 {
+  font-family: var(--font-display);
+  font-size: 1.185rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  margin-top: 1.5rem;
+}
+.prose-tour strong { color: var(--color-ink); font-weight: 700; }
+.prose-tour a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.prose-tour ul, .prose-tour ol { padding-left: 1.25rem; }
+.prose-tour ul { list-style: disc; }
+.prose-tour ol { list-style: decimal; }
+.prose-tour li { margin-top: 0.5rem; }
+.prose-tour li::marker { color: var(--color-gold-500); }
+.prose-tour img { border-radius: var(--radius-card); margin-block: 1.5rem; }
+.prose-tour blockquote {
+  border-left: 3px solid var(--color-gold-500);
+  padding-left: 1rem;
+  font-style: italic;
+}
+.prose-tour table { width: 100%; border-collapse: collapse; }
+.prose-tour th, .prose-tour td {
+  border: 1px solid var(--color-line);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+.prose-tour th { color: var(--color-ink); font-weight: 700; }

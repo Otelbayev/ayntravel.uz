@@ -1,0 +1,408 @@
+// AYN TRAVEL — ma'lumotlar bazasi sxemasi
+//
+// Ikki tillilik: alohida `translations` jadvali o'rniga juft ustunlar
+// (titleUz / titleRu). Atigi 2 til va maydonlar kam bo'lgani uchun bu
+// yondashuv to'liq tiplanadi, indekslanadi va har so'rovda join talab qilmaydi.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  BOOKED
+  LOST
+  SPAM
+}
+
+enum MealPlan {
+  RO
+  BB
+  HB
+  FB
+  AI
+  UAI
+}
+
+// ─────────────────────────────────────────────────────────────
+// Foydalanuvchilar
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         UserRole  @default(MANAGER)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  uploadedMedia Media[]        @relation("MediaUploader")
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+  assignedLeads Lead[]         @relation("LeadAssignee")
+
+  @@map("users")
+}
+
+/// Refresh token'lar bazada saqlanadi — shunda "barcha qurilmalardan chiqish"
+/// va o'g'irlangan tokenni bekor qilish imkoni bo'ladi.
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Media
+// ─────────────────────────────────────────────────────────────
+
+/// Har bir yuklangan rasm. `variants` — Json: { poster: { webp: "...", avif: "..." }, ... }
+/// O'lchamlar va formatlar `@ayntravel/shared` dagi IMAGE_VARIANTS ga mos keladi.
+model Media {
+  id           String   @id @default(cuid())
+  filename     String   @unique
+  originalName String
+  mimeType     String
+  width        Int
+  height       Int
+  sizeBytes    Int
+  variants     Json
+  blurDataUrl  String?  @db.Text
+  altUz        String?
+  altRu        String?
+  uploadedById String?
+  uploadedBy   User?    @relation("MediaUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tourPosters      Tour[]        @relation("TourPoster")
+  tourGallery      TourImage[]
+  destinationHeros Destination[] @relation("DestinationHero")
+  postCovers       Post[]        @relation("PostCover")
+  testimonials     Testimonial[] @relation("TestimonialPhoto")
+
+  @@index([createdAt])
+  @@map("media")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Yo'nalishlar va turlar
+// ─────────────────────────────────────────────────────────────
+
+/// Yo'nalish = mamlakat/mintaqa (Turkiya, Vyetnam, Dubay...).
+/// SEO uchun eng qimmatli landing sahifalar shu modeldan chiqadi.
+model Destination {
+  id             String  @id @default(cuid())
+  slug           String  @unique
+  nameUz         String
+  nameRu         String?
+  countryCode    String? @db.VarChar(2)
+  descriptionUz  String? @db.Text
+  descriptionRu  String? @db.Text
+  heroImageId    String?
+  heroImage      Media?  @relation("DestinationHero", fields: [heroImageId], references: [id], onDelete: SetNull)
+  sortOrder      Int     @default(0)
+  isActive       Boolean @default(true)
+
+  seoTitleUz       String?
+  seoTitleRu       String?
+  seoDescriptionUz String? @db.Text
+  seoDescriptionRu String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tours Tour[]
+
+  @@index([isActive, sortOrder])
+  @@map("destinations")
+}
+
+model Tour {
+  id        String @id @default(cuid())
+  slug      String @unique
+  titleUz   String
+  titleRu   String?
+  summaryUz String? @db.Text
+  summaryRu String? @db.Text
+  bodyUz    String? @db.Text
+  bodyRu    String? @db.Text
+
+  destinationId String
+  destination   Destination @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+
+  /// Narxlar dollarda. Decimal — suzuvchi nuqta xatolarini oldini oladi.
+  priceFrom Decimal  @db.Decimal(10, 2)
+  /// Posterlardagi "qo'shimcha to'lov" (masalan Turkiya turida 250$).
+  extraFee  Decimal? @db.Decimal(10, 2)
+  currency  String   @default("USD") @db.VarChar(3)
+
+  departureDate  DateTime?
+  returnDate     DateTime?
+  durationDays   Int?
+  durationNights Int?
+
+  hotelStars Int?
+  mealPlan   MealPlan?
+
+  citiesUz String[] @default([])
+  citiesRu String[] @default([])
+  includes String[] @default([])
+  excludes String[] @default([])
+
+  posterImageId String?
+  posterImage   Media?      @relation("TourPoster", fields: [posterImageId], references: [id], onDelete: SetNull)
+  gallery       TourImage[]
+
+  isHot      Boolean @default(false)
+  isFeatured Boolean @default(false)
+  seatsLeft  Int?
+
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  viewCount   Int           @default(0)
+
+  seoTitleUz       String?
+  seoTitleRu       String?
+  seoDescriptionUz String? @db.Text
+  seoDescriptionRu String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads        Lead[]
+  testimonials Testimonial[]
+
+  @@index([status, departureDate])
+  @@index([status, isHot])
+  @@index([status, isFeatured])
+  @@index([destinationId, status])
+  @@index([priceFrom])
+  @@map("tours")
+}
+
+/// Tur galereyasi — tartibni saqlash uchun aniq bog'lovchi jadval.
+model TourImage {
+  id      String @id @default(cuid())
+  tourId  String
+  tour    Tour   @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  mediaId String
+  media   Media  @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  sortOrder Int  @default(0)
+
+  @@unique([tourId, mediaId])
+  @@index([tourId, sortOrder])
+  @@map("tour_images")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Blog / yangiliklar
+// ─────────────────────────────────────────────────────────────
+
+model Post {
+  id        String  @id @default(cuid())
+  slug      String  @unique
+  titleUz   String
+  titleRu   String?
+  excerptUz String? @db.Text
+  excerptRu String? @db.Text
+  bodyUz    String? @db.Text
+  bodyRu    String? @db.Text
+
+  coverImageId String?
+  coverImage   Media?  @relation("PostCover", fields: [coverImageId], references: [id], onDelete: SetNull)
+
+  category    String?
+  tags        String[]      @default([])
+  readingTime Int           @default(1)
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  viewCount   Int           @default(0)
+
+  seoTitleUz       String?
+  seoTitleRu       String?
+  seoDescriptionUz String? @db.Text
+  seoDescriptionRu String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishedAt])
+  @@map("posts")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Lidlar — saytning asosiy biznes qiymati
+// ─────────────────────────────────────────────────────────────
+
+model Lead {
+  id      String  @id @default(cuid())
+  name    String
+  /// E.164 formatda saqlanadi: +998915443160
+  phone   String
+  message String? @db.Text
+
+  /// Ariza qaysi sahifa/blokdan kelgani (hero, tour_page, floating_cta...).
+  source String  @default("other")
+  locale String  @default("uz") @db.VarChar(2)
+
+  tourId String?
+  tour   Tour?   @relation(fields: [tourId], references: [id], onDelete: SetNull)
+
+  status      LeadStatus @default(NEW)
+  managerNote String?    @db.Text
+  assignedToId String?
+  assignedTo   User?     @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  /// Reklama manbasini kuzatish (utm_source, utm_campaign...).
+  utm Json?
+
+  /// IP to'liq saqlanmaydi — faqat hash (rate limit va spam tahlili uchun yetarli).
+  ipHash    String?
+  userAgent String? @db.Text
+
+  /// Telegram xabari yuborilganmi. Yuborilmagan bo'lsa qayta urinish mumkin.
+  notifiedAt  DateTime?
+  contactedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@index([phone])
+  @@index([tourId])
+  @@map("leads")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Yordamchi kontent
+// ─────────────────────────────────────────────────────────────
+
+model Service {
+  id            String  @id @default(cuid())
+  slug          String  @unique
+  icon          String?
+  titleUz       String
+  titleRu       String?
+  descriptionUz String? @db.Text
+  descriptionRu String? @db.Text
+  sortOrder     Int     @default(0)
+  isActive      Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("services")
+}
+
+model Testimonial {
+  id         String  @id @default(cuid())
+  clientName String
+  textUz     String  @db.Text
+  textRu     String? @db.Text
+  rating     Int     @default(5)
+
+  photoId String?
+  photo   Media?  @relation("TestimonialPhoto", fields: [photoId], references: [id], onDelete: SetNull)
+
+  tourId String?
+  tour   Tour?   @relation(fields: [tourId], references: [id], onDelete: SetNull)
+
+  isPublished Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isPublished, sortOrder])
+  @@map("testimonials")
+}
+
+/// Savol-javob. Saytda accordion, HTML'da FAQPage schema.org sifatida chiqadi.
+model Faq {
+  id         String  @id @default(cuid())
+  questionUz String
+  questionRu String?
+  answerUz   String  @db.Text
+  answerRu   String? @db.Text
+  sortOrder  Int     @default(0)
+  isActive   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("faqs")
+}
+
+/// Statik sahifalar: biz haqimizda, ommaviy oferta, maxfiylik siyosati.
+model Page {
+  id      String  @id @default(cuid())
+  slug    String  @unique
+  titleUz String
+  titleRu String?
+  bodyUz  String? @db.Text
+  bodyRu  String? @db.Text
+
+  seoTitleUz       String?
+  seoTitleRu       String?
+  seoDescriptionUz String? @db.Text
+  seoDescriptionRu String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("pages")
+}
+
+/// Telefonlar, linklar, manzil, hero matni — kod tegmasdan o'zgaradi.
+model SiteSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+model AuditLog {
+  id       String  @id @default(cuid())
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  entity   String
+  entityId String?
+  action   String
+  diff     Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
