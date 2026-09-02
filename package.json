@@ -2,36 +2,20 @@
   "name": "ayntravel",
   "version": "1.0.0",
   "private": true,
-  "description": "AYN TRAVEL — Toshkentdagi turizm kompaniyasi sayti",
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
+  "description": "AYN TRAVEL — ayntravel.uz. Backend va frontend mustaqil ilovalar.",
   "scripts": {
-    "dev": "npm-run-all --parallel dev:api dev:web",
-    "dev:api": "npm run dev --workspace=@ayntravel/api",
-    "dev:web": "npm run dev --workspace=@ayntravel/web",
-    "build": "npm run build --workspace=@ayntravel/shared && npm run build --workspace=@ayntravel/api && npm run build --workspace=@ayntravel/web",
-    "db:generate": "npm run db:generate --workspace=@ayntravel/api",
-    "db:migrate": "npm run db:migrate --workspace=@ayntravel/api",
-    "db:push": "npm run db:push --workspace=@ayntravel/api",
-    "db:seed": "npm run db:seed --workspace=@ayntravel/api",
-    "db:studio": "npm run db:studio --workspace=@ayntravel/api",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
-    "deploy:build": "node scripts/build-deploy.mjs",
-    "db:export": "node scripts/export-database.mjs"
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "dev": "npm-run-all --parallel dev:backend dev:frontend",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "sync:shared": "node sync-shared.mjs",
+    "db:export": "cd backend && npm run db:export",
+    "typecheck": "cd backend && npm run typecheck && cd ../frontend && npm run typecheck"
   },
   "devDependencies": {
-    "npm-run-all": "^4.1.5",
-    "typescript": "^5.7.3"
+    "npm-run-all": "^4.1.5"
   },
   "engines": {
     "node": ">=20.11.0"
-  },
-  "overrides": {
-    "@prisma/config": {
-      "deepmerge-ts": "^8.0.2"
-    }
   }
 }

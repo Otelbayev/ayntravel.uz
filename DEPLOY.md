@@ -76,7 +76,16 @@ Natija **8 | 9 | 6 | 1** bo'lishi kerak.
 
 ### Fayllarni yuklash
 
-`backend/` papkasini **File Manager** yoki FTP orqali yuklang, masalan:
+Avval kompyuteringizda yig'ing:
+
+```bash
+cd backend
+npm install
+npm run build      # TypeScript → dist/
+```
+
+So'ng `backend/` papkasini **File Manager** yoki FTP orqali yuklang
+(`node_modules/` ni yuklamang — u serverda o'rnatiladi), masalan:
 
 ```
 /home/hisobingiz/ayntravel-api/
@@ -112,10 +121,13 @@ qo'shing (`backend/.env.example` da to'liq ro'yxat va izohlar bor):
 | `IP_HASH_SALT` | tasodifiy satr |
 | `WEB_URL` | `https://ayntravel.uz` |
 | `CORS_ORIGINS` | `https://ayntravel.uz,https://www.ayntravel.uz` |
-| `ASSET_BASE_URL` | `https://api.ayntravel.uz/uploads` |
+| `ASSET_BASE_URL` | `/uploads`  ← nisbiy, o'zgartirmang |
 | `REVALIDATE_SECRET` | tasodifiy satr |
 | `STORAGE_DRIVER` | `local` |
 | `UPLOAD_DIR` | `./uploads` |
+
+> `ASSET_BASE_URL` **nisbiy** bo'lishi shart (`/uploads`). Rasmlar sayt
+> domeni orqali beriladi — to'liq manzil yozilsa ular ochilmay qoladi.
 
 Tasodifiy kalit yaratish (SSH bor bo'lsa):
 
@@ -156,16 +168,35 @@ Chiqmasa — ilova sahifasidagi log fayliga qarang.
 
 ## 3-qadam: Frontend (sayt)
 
+### To'plamni tayyorlash
+
+Kompyuteringizda:
+
+```bash
+# Backend ishlab tursin — sayt undan kontent oladi
+cd backend && npm run dev
+
+# Boshqa terminalda
+cd frontend
+npm install
+npm run build
+npm run pack       # natija: frontend/dist/
+```
+
+> Backend o'chiq bo'lsa ham build **xato bermaydi** — sayt bo'sh holatda
+> yig'iladi va API ko'tarilgach kontent o'zi paydo bo'ladi. Lekin to'liq
+> kontent bilan yig'ish afzalroq: sahifalar darhol tayyor bo'ladi.
+
 ### Fayllarni yuklash
 
-`frontend/` papkasini yuklang, masalan:
+`frontend/dist/` papkasi ichidagini yuklang, masalan:
 
 ```
 /home/hisobingiz/ayntravel-web/
 ```
 
-> Bu papka **~59 MB** va ichida `node_modules` bor. FTP bilan yuklash uzoq
-> davom etadi — uni ZIP qilib yuklab, File Manager'da ochgan tezroq bo'ladi.
+> Papka **~60 MB** va ichida barcha modullar bor — serverda `npm install`
+> qilish **SHART EMAS**. FTP sekin bo'lsa ZIP qilib yuklab, File Manager'da oching.
 
 ### Node.js ilovasini yaratish
 
@@ -179,18 +210,28 @@ Chiqmasa — ilova sahifasidagi log fayliga qarang.
 
 ### Sozlamalar
 
+`.env.example` ni `.env` deb nusxalang va to'ldiring:
+
 | O'zgaruvchi | Qiymat |
 |---|---|
 | `NODE_ENV` | `production` |
 | `API_INTERNAL_URL` | `http://127.0.0.1:4000` |
+| `NEXT_PUBLIC_API_URL` | `https://api.ayntravel.uz` |
+| `NEXT_PUBLIC_SITE_URL` | `https://ayntravel.uz` |
+| `REVALIDATE_SECRET` | backend'dagi bilan **bir xil** |
 
-> `127.0.0.1` — sayt API bilan server ichida gaplashadi: tezroq va
-> tashqi tarmoqqa chiqmaydi.
+> `API_INTERNAL_URL` — sayt API bilan server ichida gaplashadi: tezroq va
+> tashqi tarmoqqa chiqmaydi. **Rasmlar ham shu manzil orqali uzatiladi**,
+> shuning uchun u to'g'ri bo'lishi muhim.
 
 ### Ishga tushirish
 
 **NPM Install qilish SHART EMAS** — barcha modullar allaqachon ichida.
 Faqat **Restart** bosing.
+
+> `NEXT_PUBLIC_*` qiymatlari **build paytida** kodga kiritiladi. Ularni
+> o'zgartirsangiz, saytni qaytadan yig'ib (`npm run build && npm run pack`)
+> yuklashingiz kerak — serverda o'zgartirish yetarli emas.
 
 Saytni oching: `https://ayntravel.uz` — bosh sahifa chiqishi kerak.
 
@@ -224,15 +265,15 @@ Saytni oching: `https://ayntravel.uz` — bosh sahifa chiqishi kerak.
 Kod o'zgarganda saytni qayta yig'ib yuklaysiz:
 
 ```bash
-# Kompyuteringizda
-npm run dev:api          # API ishga tushsin (build unga murojaat qiladi)
-npm run deploy:build     # deploy/ papkasi yangilanadi
+# Backend o'zgargan bo'lsa
+cd backend && npm run build
+#   → serverga `dist/` ni yuklang, Restart
+
+# Frontend o'zgargan bo'lsa
+cd backend && npm run dev        # kontent uchun ishlab tursin
+cd frontend && npm run build && npm run pack
+#   → serverga `dist/` ichidagini yuklang, Restart
 ```
-
-So'ng:
-
-- **Backend o'zgargan bo'lsa:** `backend/dist/` ni yuklang → Restart
-- **Frontend o'zgargan bo'lsa:** `frontend/` ni to'liq almashtiring → Restart
 
 > `uploads/` papkasini **almashtirmang** — unda menejerlar yuklagan
 > rasmlar bor.
@@ -268,9 +309,12 @@ ni tekshiring va frontend'dagi `API_INTERNAL_URL` to'g'riligiga ishonch hosil qi
 `DATABASE_URL` noto'g'ri yoki `database.sql` import qilinmagan.
 phpPgAdmin'da tekshiring: `SELECT email FROM users;`
 
-**Rasm yuklanmayapti**
-`uploads/` papkasiga yozish huquqi yo'q. File Manager'da huquqni `755` qiling.
-`ASSET_BASE_URL` ham to'g'ri domenni ko'rsatishi kerak.
+**Rasm yuklanmayapti yoki ochilmayapti**
+- `uploads/` papkasiga yozish huquqi yo'q → File Manager'da `755` qiling
+- `backend/.env` da `ASSET_BASE_URL=/uploads` bo'lishi shart (nisbiy!)
+- `frontend/.env` da `API_INTERNAL_URL` to'g'ri backend manzilini ko'rsatsin —
+  rasmlar shu orqali uzatiladi
+- Tekshirish: `https://ayntravel.uz/uploads/<biror-fayl>.webp` ochilishi kerak
 
 **Ariza keladi, Telegram'ga xabar kelmaydi**
 Ariza baribir bazada saqlanadi (admin panelda ko'rinadi) — bu ataylab

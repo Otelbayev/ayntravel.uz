@@ -15,14 +15,13 @@ npm-debug.log*
 .idea/
 .vscode/
 
-# yuklangan rasmlar (LocalDriver)
-uploads/
-!uploads/.gitkeep
+# Rasmlar oy bo'yicha papkalarga yoziladi (2026-09/...).
+#
+# Menejerlar yuklagan rasmlar git'ga tushmaydi — ular serverda yashaydi.
+# `demo-*` bilan boshlanadiganlar esa tushadi: ular database.sql bilan
+# birga keladigan boshlang'ich kontent va yangi o'rnatishda kerak.
+backend/uploads/*/*
+!backend/uploads/*/demo-*
 
 coverage/
 *.tsbuildinfo
-.turbo/
-
-
-# tayyor deploy to'plami (npm run deploy:build)
-deploy/
