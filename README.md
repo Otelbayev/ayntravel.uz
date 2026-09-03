@@ -166,6 +166,32 @@ Nega shunday:
 
 Shu sababli `ASSET_BASE_URL=/uploads` (nisbiy) bo'lishi shart.
 
+### Bosh ekran foni
+
+Sozlamalar bo'limidagi «Bosh ekran foni» kartochkasidan uchta rejim tanlanadi:
+
+| Rejim | Nima bo'ladi |
+|---|---|
+| **Gradient** | Hozirgidek — sof rang o'tishi. Eng tez ochiladi (sukut bo'yicha) |
+| **Slayd-shou** | 6 tagacha rasm navbat bilan almashadi; davomiyligi va «ken burns» sozlanadi |
+| **Video** | MP4 yoki WebM tovushsiz aylanib turadi — yuklangan fayl yoki tashqi havola |
+
+Sarlavha va tavsif barcha slaydlarda **bir xil** qoladi, faqat fon almashadi.
+
+Muhim tafsilotlar:
+
+- Video **majburiy poster rasm** talab qiladi. Sahifa tezligi (LCP) aynan shu
+  rasm bo'yicha o'lchanadi: video HTML'da umuman yo'q, u sahifa chizilgandan
+  keyin bo'sh vaqtda ulanadi va tayyor bo'lgach yumshoq paydo bo'ladi.
+- **Telefonlarda video yuklanmaydi** — faqat poster ko'rinadi. Mobil trafikni
+  tejash uchun ataylab shunday (`Data Saver` va sekin ulanishda ham o'chadi).
+- Video hajmi **48MB** gacha; 8–15 soniyalik loop tavsiya etiladi.
+- «Parda quyuqligi» slayderi yonida **jonli ko'rinish** bor — saqlashdan oldin
+  matn o'qilishini tekshirish mumkin.
+- Fonda ishlatilayotgan rasm yoki videoni «Rasmlar» bo'limidan **o'chirib
+  bo'lmaydi** — avval sozlamadan olib tashlash kerak. Baribir yo'qolib qolsa
+  (masalan bazadan qo'lda o'chirilsa) sayt jimgina gradientga qaytadi.
+
 ---
 
 ## Admin panel
@@ -179,11 +205,11 @@ Shu sababli `ASSET_BASE_URL=/uploads` (nisbiy) bo'lishi shart.
 | Turlar | Poster (4:5), narx, sana, «goryashiy» belgisi, galereya |
 | Yo'nalishlar | SEO landing sahifalari |
 | Blog | Maqolalar (HTML) |
-| Rasmlar | Yuklash, **alt matn tahriri**, qayerda ishlatilayotgani |
+| Rasmlar | Yuklash (rasm va hero uchun **video**), **alt matn tahriri**, qayerda ishlatilayotgani |
 | Xizmatlar / Fikrlar / Savol-javob | To'liq CRUD |
 | Statik sahifalar | Biz haqimizda, oferta, maxfiylik siyosati |
 | Foydalanuvchilar | Faqat ADMIN roli uchun |
-| Sozlamalar | Telefonlar, linklar, manzil, hero matni |
+| Sozlamalar | Telefonlar, linklar, manzil, hero matni va **bosh ekran foni** |
 
 Barcha bo'limlarda **yaratish, tahrirlash va o'chirish** ishlaydi.
 

@@ -27,7 +27,11 @@ const num = (d: Prisma.Decimal | null | undefined): number | null =>
 
 export const mediaSelect = {
   id: true,
+  kind: true,
+  mimeType: true,
   variants: true,
+  sourceUrl: true,
+  durationSeconds: true,
   width: true,
   height: true,
   blurDataUrl: true,
@@ -40,19 +44,25 @@ type MediaRow = Prisma.MediaGetPayload<{ select: typeof mediaSelect }>;
 export function toMedia(row: MediaRow | null | undefined): MediaDTO | null {
   if (!row) return null;
   const variants = (row.variants ?? {}) as MediaVariants;
-  // Asosiy URL — 4:5 webp: eng ko'p ishlatiladigan va hamma joyda qo'llab-quvvatlanadi.
-  const url =
-    variants.poster?.webp ??
-    variants.square?.webp ??
-    variants.wide?.webp ??
-    variants.thumb?.webp ??
-    '';
+  const isVideo = row.kind === 'VIDEO';
+  // Asosiy URL — rasmda 4:5 webp (eng ko'p ishlatiladigan), videoda xom fayl.
+  const url = isVideo
+    ? (row.sourceUrl ?? '')
+    : (variants.poster?.webp ??
+      variants.square?.webp ??
+      variants.wide?.webp ??
+      variants.thumb?.webp ??
+      '');
   return {
     id: row.id,
+    kind: row.kind,
     url,
+    sourceUrl: row.sourceUrl,
+    mimeType: row.mimeType,
     variants,
     width: row.width,
     height: row.height,
+    durationSeconds: row.durationSeconds,
     blurDataUrl: row.blurDataUrl,
     altUz: row.altUz,
     altRu: row.altRu,

@@ -93,7 +93,7 @@ export default async function LocaleLayout({
   // sayt ochilishi kerak — shuning uchun `safeApi` va bazaviy qiymatlar.
   const [settings, destinations] = await Promise.all([
     safeApi.settings(),
-    safeApi.destinations(),
+    safeApi.destinationsNav(),
   ]);
   const site = settings ?? DEFAULT_SETTINGS;
 

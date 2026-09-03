@@ -23,6 +23,14 @@ export const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localho
 
 const baseUrl = typeof window === 'undefined' ? INTERNAL_URL : PUBLIC_API_URL;
 
+/** Header/footer navigatsiyasi uchun minimal yo'nalish ma'lumoti. */
+export interface DestinationNavItem {
+  id: string;
+  slug: string;
+  nameUz: string;
+  nameRu: string | null;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -152,11 +160,26 @@ export const api = {
       revalidate: REVALIDATE,
     }),
 
-  destination: (slug: string) =>
-    request<{ destination: DestinationDTO; tours: TourDTO[] }>(`/api/destinations/${slug}`, {
-      tags: ['destinations', 'tours'],
-      revalidate: REVALIDATE,
+  /**
+   * Header/footer navigatsiyasi uchun yengil ro'yxat.
+   * Layout uni HAR sahifada chaqiradi, shuning uchun uzoqroq keshlanadi.
+   */
+  destinationsNav: () =>
+    request<DestinationNavItem[]>('/api/destinations/nav', {
+      tags: ['destinations'],
+      revalidate: 3600,
     }),
+
+  destination: (slug: string, page = 1, pageSize = 24) =>
+    request<{ destination: DestinationDTO; tours: Paginated<TourDTO> }>(
+      `/api/destinations/${slug}?page=${page}&pageSize=${pageSize}`,
+      {
+        // `tours` tegi ataylab yo'q: bitta tur nashr etilganda BARCHA yo'nalish
+        // landinglari kuyib ketardi. Aniq teg faqat shu sahifani yangilaydi.
+        tags: ['destinations', `destination:${slug}`],
+        revalidate: REVALIDATE,
+      },
+    ),
 
   posts: (page = 1) =>
     request<Paginated<PostDTO>>(`/api/posts?page=${page}`, {
@@ -203,6 +226,8 @@ export const api = {
 export const safeApi = {
   settings: () => safe(api.settings(), null as SiteSettings | null, 'settings'),
   destinations: () => safe(api.destinations(), [] as DestinationDTO[], 'destinations'),
+  destinationsNav: () =>
+    safe(api.destinationsNav(), [] as DestinationNavItem[], 'destinations-nav'),
   sitemapData: () =>
     safe(
       api.sitemapData(),

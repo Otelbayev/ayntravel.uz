@@ -66,14 +66,14 @@ model User {
 /// Refresh token'lar bazada saqlanadi — shunda "barcha qurilmalardan chiqish"
 /// va o'g'irlangan tokenni bekor qilish imkoni bo'ladi.
 model RefreshToken {
-  id        String   @id @default(cuid())
-  tokenHash String   @unique
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   revokedAt DateTime?
   userAgent String?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@map("refresh_tokens")
@@ -83,24 +83,38 @@ model RefreshToken {
 // Media
 // ─────────────────────────────────────────────────────────────
 
+/// Media turi. Rasm — sharp bilan variantlarga kesiladi; video — xom saqlanadi.
+enum MediaKind {
+  IMAGE
+  VIDEO
+}
+
 /// Har bir yuklangan rasm. `variants` — Json: { poster: { webp: "...", avif: "..." }, ... }
 /// O'lchamlar va formatlar `@ayntravel/shared` dagi IMAGE_VARIANTS ga mos keladi.
+///
+/// Video qatorlarida `variants` bo'sh ({}), fayl URL'i `sourceUrl` da turadi.
+/// `width`/`height` brauzer o'lchagan qiymatlar — serverda ffmpeg yo'q.
 model Media {
-  id           String   @id @default(cuid())
-  filename     String   @unique
-  originalName String
-  mimeType     String
-  width        Int
-  height       Int
-  sizeBytes    Int
-  variants     Json
-  blurDataUrl  String?  @db.Text
-  altUz        String?
-  altRu        String?
-  uploadedById String?
-  uploadedBy   User?    @relation("MediaUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String    @id @default(cuid())
+  kind            MediaKind @default(IMAGE)
+  filename        String    @unique
+  originalName    String
+  mimeType        String
+  width           Int
+  height          Int
+  sizeBytes       Int
+  variants        Json
+  /// Faqat video uchun — yuklangan faylning to'g'ridan URL'i.
+  sourceUrl       String?
+  /// Faqat video uchun — davomiyligi soniyada.
+  durationSeconds Int?
+  blurDataUrl     String?   @db.Text
+  altUz           String?
+  altRu           String?
+  uploadedById    String?
+  uploadedBy      User?     @relation("MediaUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   tourPosters      Tour[]        @relation("TourPoster")
   tourGallery      TourImage[]
@@ -109,6 +123,7 @@ model Media {
   testimonials     Testimonial[] @relation("TestimonialPhoto")
 
   @@index([createdAt])
+  @@index([kind, createdAt])
   @@map("media")
 }
 
@@ -119,17 +134,17 @@ model Media {
 /// Yo'nalish = mamlakat/mintaqa (Turkiya, Vyetnam, Dubay...).
 /// SEO uchun eng qimmatli landing sahifalar shu modeldan chiqadi.
 model Destination {
-  id             String  @id @default(cuid())
-  slug           String  @unique
-  nameUz         String
-  nameRu         String?
-  countryCode    String? @db.VarChar(2)
-  descriptionUz  String? @db.Text
-  descriptionRu  String? @db.Text
-  heroImageId    String?
-  heroImage      Media?  @relation("DestinationHero", fields: [heroImageId], references: [id], onDelete: SetNull)
-  sortOrder      Int     @default(0)
-  isActive       Boolean @default(true)
+  id            String  @id @default(cuid())
+  slug          String  @unique
+  nameUz        String
+  nameRu        String?
+  countryCode   String? @db.VarChar(2)
+  descriptionUz String? @db.Text
+  descriptionRu String? @db.Text
+  heroImageId   String?
+  heroImage     Media?  @relation("DestinationHero", fields: [heroImageId], references: [id], onDelete: SetNull)
+  sortOrder     Int     @default(0)
+  isActive      Boolean @default(true)
 
   seoTitleUz       String?
   seoTitleRu       String?
@@ -146,8 +161,8 @@ model Destination {
 }
 
 model Tour {
-  id        String @id @default(cuid())
-  slug      String @unique
+  id        String  @id @default(cuid())
+  slug      String  @unique
   titleUz   String
   titleRu   String?
   summaryUz String? @db.Text
@@ -205,17 +220,20 @@ model Tour {
   @@index([status, isFeatured])
   @@index([destinationId, status])
   @@index([priceFrom])
+  /// Yo'nalish bo'yicha "eng arzon narx" agregatsiyasi uchun qoplovchi indeks:
+  /// WHERE status='PUBLISHED' GROUP BY destinationId, MIN(priceFrom).
+  @@index([status, destinationId, priceFrom])
   @@map("tours")
 }
 
 /// Tur galereyasi — tartibni saqlash uchun aniq bog'lovchi jadval.
 model TourImage {
-  id      String @id @default(cuid())
-  tourId  String
-  tour    Tour   @relation(fields: [tourId], references: [id], onDelete: Cascade)
-  mediaId String
-  media   Media  @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-  sortOrder Int  @default(0)
+  id        String @id @default(cuid())
+  tourId    String
+  tour      Tour   @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  mediaId   String
+  media     Media  @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  sortOrder Int    @default(0)
 
   @@unique([tourId, mediaId])
   @@index([tourId, sortOrder])
@@ -270,16 +288,16 @@ model Lead {
   message String? @db.Text
 
   /// Ariza qaysi sahifa/blokdan kelgani (hero, tour_page, floating_cta...).
-  source String  @default("other")
-  locale String  @default("uz") @db.VarChar(2)
+  source String @default("other")
+  locale String @default("uz") @db.VarChar(2)
 
   tourId String?
   tour   Tour?   @relation(fields: [tourId], references: [id], onDelete: SetNull)
 
-  status      LeadStatus @default(NEW)
-  managerNote String?    @db.Text
+  status       LeadStatus @default(NEW)
+  managerNote  String?    @db.Text
   assignedToId String?
-  assignedTo   User?     @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedTo   User?      @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   /// Reklama manbasini kuzatish (utm_source, utm_campaign...).
   utm Json?
@@ -393,13 +411,13 @@ model SiteSetting {
 }
 
 model AuditLog {
-  id       String  @id @default(cuid())
-  userId   String?
-  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-  entity   String
-  entityId String?
-  action   String
-  diff     Json?
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  entity    String
+  entityId  String?
+  action    String
+  diff      Json?
   createdAt DateTime @default(now())
 
   @@index([entity, entityId])

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useAdminResource } from '@/hooks/useAdminResource';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ExternalLink, Flame, Plus, Star, Trash2 } from 'lucide-react';
+import { ExternalLink, Flame, Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import type { ContentStatus, Paginated, TourDTO } from '@/shared';
 import { adminClient, AdminApiError } from '@/lib/admin-client';
 import { useToast } from '@/components/admin/Toast';
@@ -158,7 +158,7 @@ export default function AdminToursPage() {
                   <Th className="w-28">Narx</Th>
                   <Th className="w-32">Jo‘nash</Th>
                   <Th className="w-36">Status</Th>
-                  <Th className="w-24">Amallar</Th>
+                  <Th className="w-32">Amallar</Th>
                 </tr>
               </thead>
               <tbody>
@@ -227,6 +227,13 @@ export default function AdminToursPage() {
 
                     <Td>
                       <div className="flex gap-1">
+                        <Link
+                          href={`/admin/tours/${tour.id}`}
+                          aria-label="Tahrirlash"
+                          className="rounded-lg p-2 text-ink-muted transition-colors hover:bg-ink/5 hover:text-accent"
+                        >
+                          <Pencil className="size-4" />
+                        </Link>
                         {tour.status === 'PUBLISHED' && (
                           <a
                             href={`/uz/turlar/${tour.slug}`}

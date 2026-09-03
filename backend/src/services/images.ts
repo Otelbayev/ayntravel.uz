@@ -26,8 +26,11 @@ const MIME_BY_FORMAT: Record<ImageFormat, string> = {
   webp: 'image/webp',
 };
 
-/** Bir xil nomli fayllar ustma-ust tushmasligi uchun tasodifiy kalit. */
-function makeBaseName(originalName: string): string {
+/**
+ * Bir xil nomli fayllar ustma-ust tushmasligi uchun tasodifiy kalit.
+ * Video servisi ham shu nomlashni ishlatadi — kalit formati bir xil bo'lsin.
+ */
+export function makeBaseName(originalName: string): string {
   const stem = originalName
     .replace(/\.[^.]+$/, '')
     .toLowerCase()

@@ -7,7 +7,13 @@
  * └─────────────────────────────────────────────────────────────┘
  */
 
-import type { Locale, ImageVariantName, ImageFormat, LeadSource } from './constants';
+import type {
+  Locale,
+  ImageVariantName,
+  ImageFormat,
+  LeadSource,
+  MediaKind,
+} from './constants';
 import type { ContentStatus, LeadStatus, MealPlan, UserRole } from './enums';
 
 /** API har doim shu konvertda javob qaytaradi. */
@@ -31,10 +37,19 @@ export type MediaVariants = Partial<Record<ImageVariantName, Partial<Record<Imag
 
 export interface MediaDTO {
   id: string;
-  url: string; // asosiy (poster/webp) URL — eng ko'p ishlatiladigan
+  kind: MediaKind;
+  /** Rasm uchun poster/webp, video uchun `sourceUrl`. */
+  url: string;
+  /** Faqat video uchun — xom fayl URL'i. Rasmda har doim `null`. */
+  sourceUrl: string | null;
+  /** `<source type="...">` uchun kerak. */
+  mimeType: string | null;
+  /** Video uchun bo'sh obyekt — `variants` faqat rasm shartnomasi. */
   variants: MediaVariants;
   width: number;
   height: number;
+  /** Video davomiyligi (soniya). Brauzer o'lchaydi — serverda ffmpeg yo'q. */
+  durationSeconds: number | null;
   blurDataUrl: string | null;
   altUz: string | null;
   altRu: string | null;
@@ -188,6 +203,51 @@ export interface UserDTO {
   createdAt: string;
 }
 
+// ── Hero foni ────────────────────────────────────────────────
+
+export type HeroBackgroundMode = 'gradient' | 'slideshow' | 'video';
+export type HeroVideoSource = 'none' | 'upload' | 'url';
+
+/**
+ * Bosh ekran foni — adminda sozlanadi, bazada bitta `heroBackground`
+ * kalitida JSON bo'lib yotadi.
+ */
+export interface HeroBackgroundConfig {
+  mode: HeroBackgroundMode;
+  /** Massiv tartibi = slaydlarning ko'rsatilish tartibi. */
+  slideIds: string[];
+  videoSource: HeroVideoSource;
+  /** `kind: 'VIDEO'` bo'lgan Media id. */
+  videoMediaId: string | null;
+  /** Tashqi mp4/webm havola. */
+  videoUrl: string;
+  /** `kind: 'IMAGE'` — video rejimida LCP elementi, shuning uchun majburiy. */
+  videoPosterId: string | null;
+  intervalMs: number;
+  kenBurns: boolean;
+  /** 0..0.9 — matn kontrasti uchun qora parda quyuqligi. */
+  overlayOpacity: number;
+}
+
+export interface ResolvedHeroVideo {
+  src: string;
+  mimeType: string | null;
+  origin: 'upload' | 'url';
+}
+
+/** Server id'larni to'liq obyektga aylantirgan holat. Bazaga hech qachon yozilmaydi. */
+export interface ResolvedHeroBackground {
+  mode: HeroBackgroundMode;
+  slides: MediaDTO[];
+  video: ResolvedHeroVideo | null;
+  /** Yuklangan video media yozuvi — admin formasi thumbnail chizishi uchun. */
+  videoMedia: MediaDTO | null;
+  poster: MediaDTO | null;
+  intervalMs: number;
+  kenBurns: boolean;
+  overlayOpacity: number;
+}
+
 /** Sayt sozlamalari — kod tegmasdan admin paneldan o'zgartiriladi. */
 export interface SiteSettings {
   phonePrimary: string;
@@ -208,6 +268,17 @@ export interface SiteSettings {
   heroTitleRu: string;
   heroSubtitleUz: string;
   heroSubtitleRu: string;
+  /**
+   * DIQQAT: bu maydonni HECH QACHON to'g'ridan o'qimang.
+   *
+   * `getSettings()` sayoz merge qiladi (`{...DEFAULT_SETTINGS, ...stored}`),
+   * ya'ni bazadagi obyekt standartni butunlay almashtiradi — kelajakda yangi
+   * maydon qo'shilsa eski qatorlarda u `undefined` bo'ladi. Har doim
+   * `normalizeHeroBackground()` orqali o'qing.
+   */
+  heroBackground: HeroBackgroundConfig;
+  /** Faqat o'qish uchun — server qo'shadi, PUT'da yuborilmaydi va saqlanmaydi. */
+  heroBackgroundResolved?: ResolvedHeroBackground;
   stats: { toursCount: number; clientsCount: number; followersCount: number; yearsCount: number };
   defaultOgImage: string | null;
   [key: string]: unknown;

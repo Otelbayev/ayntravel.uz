@@ -10,6 +10,8 @@ import { RevealGroup, RevealItem } from '@/components/motion/Reveal';
 interface Props {
   destinations: DestinationDTO[];
   locale: Locale;
+  /** Nechta rasm oldindan yuklansin — faqat ekranda ko'rinadiganlar. */
+  priorityCount?: number;
 }
 
 /**
@@ -17,18 +19,19 @@ interface Props {
  * olib boradi ("Turkiyaga turlar", "Dubay turlari") — bu sahifalar
  * qidiruvdan trafik olib keladigan asosiy manba.
  */
-export function DestinationsSection({ destinations, locale }: Props) {
+export function DestinationsSection({ destinations, locale, priorityCount = 0 }: Props) {
   const t = useTranslations('tour');
 
   return (
     <RevealGroup className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4">
-      {destinations.map((destination) => {
+      {destinations.map((destination, index) => {
         const name = pick(destination as unknown as Record<string, unknown>, 'name', locale);
+        const count = destination.tourCount ?? 0;
         return (
           <RevealItem key={destination.id}>
             <Link
               href={{ pathname: '/yonalishlar/[slug]', params: { slug: destination.slug } }}
-              className="group relative block h-full overflow-hidden rounded-card border border-line"
+              className="group relative block h-full overflow-hidden rounded-card border border-line transition-shadow hover:shadow-card-hover"
             >
               {/* Rasm ustidagi matn — har doim to'q fonda (pastdagi izohga qarang) */}
               <div
@@ -37,13 +40,20 @@ export function DestinationsSection({ destinations, locale }: Props) {
               >
                 <SmartImage
                   media={destination.heroImage}
-                  variant="poster"
+                  variant="square"
                   alt={name}
                   locale={locale}
+                  priority={index < priorityCount}
                   className="transition-transform duration-700 group-hover:scale-110"
                   sizes="(max-width: 640px) 46vw, (max-width: 1024px) 30vw, 23vw"
                 />
                 <div className="overlay-gradient absolute inset-0" />
+
+                {count > 0 && (
+                  <span className="absolute top-3 right-3 rounded-full bg-navy-950/70 px-2.5 py-1 text-[11px] font-bold text-ink backdrop-blur-sm">
+                    {count} {locale === 'ru' ? 'туров' : 'ta tur'}
+                  </span>
+                )}
 
                 <div className="absolute inset-x-0 bottom-0 p-4">
                   <h3 className="font-display text-lg font-bold text-ink sm:text-xl">{name}</h3>
@@ -55,7 +65,7 @@ export function DestinationsSection({ destinations, locale }: Props) {
                       </span>
                     ) : (
                       <span className="text-xs text-ink/60">
-                        {destination.tourCount ?? 0} {locale === 'ru' ? 'туров' : 'ta tur'}
+                        {locale === 'ru' ? 'Скоро' : 'Tez orada'}
                       </span>
                     )}
                     <ArrowRight

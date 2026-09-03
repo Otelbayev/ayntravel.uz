@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { Plus, X } from 'lucide-react';
 import {
   MEAL_PLANS,
@@ -17,6 +16,7 @@ import { adminClient, AdminApiError } from '@/lib/admin-client';
 import { Button } from '@/components/ui/Button';
 import { ErrorBox, Field, inputStyles } from './ui';
 import { MediaField, MediaPicker } from './MediaPicker';
+import { MediaThumb } from './MediaThumb';
 import { FieldRow, FormSection, FormShell, Required } from './FormShell';
 import { useToast } from './Toast';
 import { cn } from '@/lib/utils';
@@ -637,13 +637,7 @@ export function TourForm({ tour }: Props) {
                 key={media.id}
                 className="relative size-20 overflow-hidden rounded-lg border border-line-strong"
               >
-                <Image
-                  src={media.variants.thumb?.webp ?? media.url}
-                  alt=""
-                  fill
-                  sizes="80px"
-                  className="object-cover"
-                />
+                <MediaThumb media={media} sizes="80px" />
                 <button
                   type="button"
                   onClick={() => {

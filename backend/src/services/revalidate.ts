@@ -56,6 +56,19 @@ export const CacheTags = {
 } as const;
 
 /**
+ * Bitta yozuv uchun aniq teglar.
+ *
+ * Umumiy `tours` / `destinations` teglari juda keng: bitta tur nashr etilsa
+ * barcha yo'nalish landinglari ham kuyardi. Aniq teg faqat kerakli sahifani
+ * yangilaydi.
+ */
+export const entityTags = {
+  tour: (slug: string) => `tour:${slug}`,
+  post: (slug: string) => `post:${slug}`,
+  destination: (slug: string) => `destination:${slug}`,
+} as const;
+
+/**
  * Bitta yozuv uchun ikkala tildagi aniq manzillarni yasaydi.
  *
  * Bu `revalidatePath` uchun kerak: agar sahifa nashr etilishidan oldin
@@ -76,6 +89,8 @@ export const localizedPaths = {
     '/ru',
     '/uz/turlar',
     '/ru/tury',
+    '/uz/yonalishlar',
+    '/ru/napravleniya',
     '/uz/blog',
     '/ru/blog',
     '/sitemap.xml',

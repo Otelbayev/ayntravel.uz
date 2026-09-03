@@ -8,6 +8,7 @@ import type { DestinationDTO, Locale, SiteSettings } from '@/shared';
 import { pick } from '@/shared';
 import { useRouter } from '@/i18n/routing';
 import { CountUp } from '@/components/motion/CountUp';
+import { HeroBackground } from '@/components/home/HeroBackground';
 import { Button } from '@/components/ui/Button';
 
 interface HeroProps {
@@ -20,8 +21,13 @@ interface HeroProps {
  * Bosh ekran. Uchta qatlam turli tezlikda siljiydi (parallaks) — bu
  * chuqurlik hissini beradi va foydalanuvchini pastga scroll qilishga undaydi.
  *
- * LCP elementi — sarlavha matni (rasm emas), shuning uchun birinchi bo'yash
- * tez bo'ladi; fon esa CSS gradient, ya'ni umuman yuklanishni kutmaydi.
+ * LCP QAYSI ELEMENT — fon rejimiga bog'liq (admin paneldan tanlanadi):
+ *  • gradient  — sarlavha matni; fon CSS gradienti, hech narsa kutmaydi;
+ *  • slayd-shou — birinchi slayd rasmi, u `priority` bilan yuklanadi;
+ *  • video     — poster rasmi. Video SSR'da umuman yo'q, u gidratatsiyadan
+ *    keyin mount bo'ladi, ya'ni LCP'ni hech qachon kechiktira olmaydi.
+ *
+ * Har uch holatda ham brend gradienti birinchi chiziladi — oq ekran bo'lmaydi.
  */
 export function Hero({ settings, destinations, locale }: HeroProps) {
   const t = useTranslations('hero');
@@ -65,8 +71,8 @@ export function Hero({ settings, destinations, locale }: HeroProps) {
       data-tone="dark"
       className="relative flex min-h-[100svh] items-center overflow-hidden pt-20 pb-16"
     >
-      {/* Fon: brend gradienti + oltin nur dog'lari */}
-      <div className="absolute inset-0 bg-gradient-to-b from-navy-950 via-navy-900 to-navy-950" />
+      {/* Fon: gradient / slayd-shou / video — adminda tanlanadi */}
+      <HeroBackground config={settings.heroBackgroundResolved} locale={locale} />
 
       <motion.div
         style={reduced ? undefined : { y: glowY }}

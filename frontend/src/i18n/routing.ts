@@ -16,6 +16,7 @@ export const routing = defineRouting({
     '/': '/',
     '/turlar': { uz: '/turlar', ru: '/tury' },
     '/turlar/[slug]': { uz: '/turlar/[slug]', ru: '/tury/[slug]' },
+    '/yonalishlar': { uz: '/yonalishlar', ru: '/napravleniya' },
     '/yonalishlar/[slug]': { uz: '/yonalishlar/[slug]', ru: '/napravleniya/[slug]' },
     '/xizmatlar': { uz: '/xizmatlar', ru: '/uslugi' },
     '/blog': { uz: '/blog', ru: '/blog' },

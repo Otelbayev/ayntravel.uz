@@ -2,9 +2,11 @@ import { Router } from 'express';
 import multer from 'multer';
 import {
   ALLOWED_UPLOAD_MIME,
+  ALLOWED_VIDEO_MIME,
   MAX_UPLOAD_BYTES,
+  MAX_VIDEO_UPLOAD_BYTES,
+  mediaQuerySchema,
   mediaUpdateSchema,
-  paginationSchema,
   type MediaVariants,
 } from '../../shared/index.js';
 import { prisma } from '../../db.js';
@@ -14,6 +16,8 @@ import { badRequest, conflict, notFound } from '../../utils/errors.js';
 import { validate, validated } from '../../middleware/validate.js';
 import { mediaSelect, toMedia } from '../../services/dto.js';
 import { deleteImageFiles, processImage } from '../../services/images.js';
+import { deleteVideoFile, storeVideo } from '../../services/videos.js';
+import { isMediaUsedInSettings } from '../../services/settings.js';
 import { logAudit } from '../../services/audit.js';
 
 export const adminMediaRouter: Router = Router();
@@ -33,19 +37,38 @@ const upload = multer({
   },
 });
 
+/**
+ * Video uchun alohida multer instansi.
+ *
+ * Bitta marshrutda 12MB va 48MB chegaralarini birga qo'llab bo'lmaydi:
+ * `limits` va `fileFilter` handler ishga tushishidan OLDIN baholanadi.
+ */
+const uploadVideo = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_VIDEO_UPLOAD_BYTES, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (!(ALLOWED_VIDEO_MIME as readonly string[]).includes(file.mimetype)) {
+      return cb(new Error('Faqat MP4 yoki WebM video yuklash mumkin'));
+    }
+    cb(null, true);
+  },
+});
+
 adminMediaRouter.get(
   '/',
-  validate(paginationSchema, 'query'),
+  validate(mediaQuerySchema, 'query'),
   asyncHandler(async (req, res) => {
-    const { page, pageSize } = validated<typeof paginationSchema>(req);
+    const { page, pageSize, kind } = validated<typeof mediaQuerySchema>(req);
+    const where = kind ? { kind } : {};
     const [rows, total] = await Promise.all([
       prisma.media.findMany({
+        where,
         select: mediaSelect,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      prisma.media.count(),
+      prisma.media.count({ where }),
     ]);
     return ok(res, paginate(rows.map((r) => toMedia(r)!), total, page, pageSize));
   }),
@@ -85,6 +108,53 @@ adminMediaRouter.post(
 );
 
 /**
+ * POST /api/admin/media/upload-video — bitta hero fon videosi.
+ *
+ * O'lchamlar va davomiylik brauzerda o'lchanib, matn maydonlari sifatida keladi:
+ * serverda ffmpeg yo'q va qo'shilmaydi. Bu autentifikatsiyalangan admin
+ * marshruti, eng yomon oqibat — admin ko'rinishida noto'g'ri nisbat.
+ *
+ * Javob RASM endpointi bilan bir xil — massiv — shunda `MediaPicker` da
+ * javobni ajratib ishlash shart emas.
+ */
+adminMediaRouter.post(
+  '/upload-video',
+  uploadVideo.single('file'),
+  asyncHandler(async (req, res) => {
+    const file = req.file;
+    if (!file) throw badRequest('Video tanlanmadi');
+
+    const body = req.body as Record<string, unknown> | undefined;
+    const width = Math.max(0, Math.trunc(Number(body?.width) || 0));
+    const height = Math.max(0, Math.trunc(Number(body?.height) || 0));
+    const durationRaw = Math.trunc(Number(body?.duration) || 0);
+
+    const stored = await storeVideo(file.buffer, file.originalname, file.mimetype);
+
+    const media = await prisma.media.create({
+      data: {
+        kind: 'VIDEO',
+        filename: stored.filename,
+        originalName: file.originalname.slice(0, 200),
+        mimeType: file.mimetype,
+        width,
+        height,
+        sizeBytes: stored.sizeBytes,
+        variants: {},
+        sourceUrl: stored.sourceUrl,
+        durationSeconds: durationRaw > 0 ? durationRaw : null,
+        blurDataUrl: null,
+        uploadedById: req.user?.sub ?? null,
+      },
+      select: mediaSelect,
+    });
+
+    await logAudit(req.user?.sub, 'media', media.id, 'upload', { kind: 'VIDEO' });
+    return ok(res, [toMedia(media)!], 201);
+  }),
+);
+
+/**
  * GET /api/admin/media/:id — bitta rasm va u qayerda ishlatilayotgani.
  *
  * Foydalanish sanog'i muhim: admin rasmni o'chirishdan oldin uning
@@ -99,7 +169,6 @@ adminMediaRouter.get(
       select: {
         ...mediaSelect,
         originalName: true,
-        mimeType: true,
         sizeBytes: true,
         createdAt: true,
         _count: {
@@ -116,10 +185,11 @@ adminMediaRouter.get(
     if (!row) throw notFound('Rasm topilmadi');
 
     const c = row._count;
+    // Sozlamalardagi havola relationlarda ko'rinmaydi — JSON ichida yotadi.
+    const heroBackground = (await isMediaUsedInSettings(row.id)) ? 1 : 0;
     return ok(res, {
       ...toMedia(row)!,
       originalName: row.originalName,
-      mimeType: row.mimeType,
       sizeBytes: row.sizeBytes,
       createdAt: row.createdAt.toISOString(),
       usage: {
@@ -128,12 +198,14 @@ adminMediaRouter.get(
         destinationHeros: c.destinationHeros,
         postCovers: c.postCovers,
         testimonials: c.testimonials,
+        heroBackground,
         total:
           c.tourPosters +
           c.tourGallery +
           c.destinationHeros +
           c.postCovers +
-          c.testimonials,
+          c.testimonials +
+          heroBackground,
       },
     });
   }),
@@ -159,7 +231,9 @@ adminMediaRouter.delete(
       where: { id: req.params.id },
       select: {
         id: true,
+        kind: true,
         variants: true,
+        sourceUrl: true,
         _count: {
           select: {
             tourPosters: true,
@@ -180,13 +254,26 @@ adminMediaRouter.delete(
       media._count.postCovers +
       media._count.testimonials;
 
-    // Ishlatilayotgan rasmni o'chirish saytda "singan rasm" qoldiradi.
-    if (used > 0) {
-      throw conflict(`Bu rasm ${used} ta joyda ishlatilmoqda. Avval u yerlardan olib tashlang`);
+    // Bosh sahifa foni sozlamalar JSON'ida yotadi — relation sanog'i uni ko'rmaydi.
+    const inSettings = await isMediaUsedInSettings(media.id);
+
+    // Ishlatilayotgan faylni o'chirish saytda "singan rasm" qoldiradi.
+    if (used > 0 || inSettings) {
+      const where =
+        used > 0 && inSettings
+          ? `${used} ta joyda va bosh sahifa fonida`
+          : inSettings
+            ? 'bosh sahifa fonida'
+            : `${used} ta joyda`;
+      throw conflict(`Bu fayl ${where} ishlatilmoqda. Avval u yerdan olib tashlang`);
     }
 
     await prisma.media.delete({ where: { id: media.id } });
-    await deleteImageFiles(media.variants as MediaVariants);
+    if (media.kind === 'VIDEO') {
+      await deleteVideoFile(media.sourceUrl);
+    } else {
+      await deleteImageFiles(media.variants as MediaVariants);
+    }
     await logAudit(req.user?.sub, 'media', media.id, 'delete');
 
     return ok(res, { id: media.id, deleted: true });

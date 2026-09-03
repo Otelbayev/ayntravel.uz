@@ -13,11 +13,11 @@ import { Card, ErrorBox, Field, FormSkeleton, inputStyles } from '@/components/a
 import { useToast } from '@/components/admin/Toast';
 import { useConfirm } from '@/components/admin/ConfirmDialog';
 import { Button } from '@/components/ui/Button';
+import { cn } from '@/lib/utils';
 
 /** Serverdan qo'shimcha maydonlar bilan keladi (`GET /api/admin/media/:id`). */
 interface MediaDetail extends MediaDTO {
   originalName: string;
-  mimeType: string;
   sizeBytes: number;
   createdAt: string;
   usage: {
@@ -26,6 +26,7 @@ interface MediaDetail extends MediaDTO {
     destinationHeros: number;
     postCovers: number;
     testimonials: number;
+    heroBackground: number;
     total: number;
   };
 }
@@ -36,6 +37,7 @@ const USAGE_LABELS: Record<string, string> = {
   destinationHeros: 'Yo‘nalish rasmi',
   postCovers: 'Maqola muqovasi',
   testimonials: 'Mijoz rasmi',
+  heroBackground: 'Bosh sahifa foni',
 };
 
 function formatBytes(bytes: number): string {
@@ -64,6 +66,8 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
   const [altUz, setAltUz] = useState<string | null>(null);
   const [altRu, setAltRu] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const isVideo = data?.kind === 'VIDEO';
 
   const uzValue = altUz ?? data?.altUz ?? '';
   const ruValue = altRu ?? data?.altRu ?? '';
@@ -133,15 +137,31 @@ export default function MediaDetailPage({ params }: { params: Promise<{ id: stri
       ) : (
         <div className="flex max-w-3xl flex-col gap-4">
           <Card className="flex flex-col gap-5 sm:flex-row">
-            {/* Ko'rib chiqish — 4:5 Instagram nisbatida */}
-            <div className="relative aspect-[4/5] w-full shrink-0 overflow-hidden rounded-xl border border-line bg-navy-950 sm:w-56">
-              <Image
-                src={data.variants.poster?.webp ?? data.url}
-                alt={data.altUz ?? ''}
-                fill
-                sizes="224px"
-                className="object-cover"
-              />
+            {/* Ko'rib chiqish — rasm 4:5 Instagram nisbatida, video 16:9 */}
+            <div
+              className={cn(
+                'relative w-full shrink-0 overflow-hidden rounded-xl border border-line bg-navy-950 sm:w-56',
+                isVideo ? 'aspect-video' : 'aspect-[4/5]',
+              )}
+            >
+              {isVideo && data.sourceUrl ? (
+                <video
+                  src={data.sourceUrl}
+                  controls
+                  muted
+                  playsInline
+                  preload="metadata"
+                  className="size-full object-cover"
+                />
+              ) : (
+                <Image
+                  src={data.variants.poster?.webp ?? data.url}
+                  alt={data.altUz ?? ''}
+                  fill
+                  sizes="224px"
+                  className="object-cover"
+                />
+              )}
             </div>
 
             <dl className="grid flex-1 gap-x-6 gap-y-3 self-start text-sm sm:grid-cols-2">

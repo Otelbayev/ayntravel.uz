@@ -7,6 +7,7 @@ import type { SiteSettings } from "@/shared";
 import { adminClient, AdminApiError } from "@/lib/admin-client";
 import { useToast } from "@/components/admin/Toast";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { HeroBackgroundCard } from "@/components/admin/HeroBackgroundCard";
 import {
   Card,
   ErrorBox,
@@ -156,9 +157,12 @@ function SettingsForm({ initial }: { initial: SiteSettings }) {
     event.preventDefault();
     setSaving(true);
     try {
+      // `heroBackgroundResolved` — server hisoblab qo'shadigan maydon, uni
+      // qaytarib yuborish shart emas (server ham baribir ajratib tashlaydi).
+      const { heroBackgroundResolved: _derived, ...payload } = settings;
       const updated = await adminClient.put<SiteSettings>(
         "/api/admin/settings",
-        settings,
+        payload,
       );
       setSettings(updated);
       setSaved(true);
@@ -205,6 +209,12 @@ function SettingsForm({ initial }: { initial: SiteSettings }) {
           ))}
         </Card>
       ))}
+
+      <HeroBackgroundCard
+        value={settings.heroBackground}
+        resolved={initial.heroBackgroundResolved}
+        onChange={(next) => setValue("heroBackground", next)}
+      />
 
       <Card className="flex flex-col gap-4">
         <div>

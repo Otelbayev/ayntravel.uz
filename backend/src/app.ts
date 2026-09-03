@@ -72,6 +72,23 @@ export function createApp(): Express {
 
   app.use('/api/auth', authRouter);
   app.use('/api/admin', adminRouter);
+
+  /**
+   * Ommaviy kontent uchun kesh sarlavhasi.
+   *
+   * Next ISR keshini chetlab o'tgan har bir so'rov (sovuq start, deploy,
+   * muddat tugashi, revalidate to'lqini) aks holda to'g'ridan bazaga uradi.
+   * `stale-while-revalidate` — eskirgan javob darhol beriladi va fonda
+   * yangilanadi, ya'ni foydalanuvchi hech qachon kutmaydi.
+   *
+   * Faqat GET: POST /api/leads hech qachon keshlanmasligi kerak.
+   */
+  app.use('/api', (req, res, next) => {
+    if (req.method === 'GET' && isProd) {
+      res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+    }
+    next();
+  });
   app.use('/api', publicRouter);
 
   app.use(notFoundHandler);

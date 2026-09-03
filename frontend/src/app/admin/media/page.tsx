@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react';
 import { useAdminResource } from '@/hooks/useAdminResource';
-import Image from 'next/image';
 import Link from 'next/link';
 import { Loader2, Trash2, Upload } from 'lucide-react';
 import type { MediaDTO, Paginated } from '@/shared';
@@ -10,8 +9,10 @@ import { adminClient, AdminApiError } from '@/lib/admin-client';
 import { useToast } from '@/components/admin/Toast';
 import { useConfirm } from '@/components/admin/ConfirmDialog';
 import { AdminShell } from '@/components/admin/AdminShell';
+import { MediaThumb } from '@/components/admin/MediaThumb';
 import { EmptyState, ErrorBox, inputStyles, Spinner } from '@/components/admin/ui';
 import { Button } from '@/components/ui/Button';
+import { cn } from '@/lib/utils';
 
 /**
  * Rasmlar kutubxonasi.
@@ -132,15 +133,22 @@ export default function MediaPage() {
                 key={media.id}
                 className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-3"
               >
-                <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-surface-raised">
-                  {/* Rasm ustiga bosilsa to'liq kartochka ochiladi */}
-                  <Link href={`/admin/media/${media.id}`} aria-label="Rasmni ochish">
-                    <Image
-                      src={media.variants.thumb?.webp ?? media.url}
-                      alt={media.altUz ?? ''}
-                      fill
+                <div
+                  className={cn(
+                    'relative overflow-hidden rounded-lg bg-surface-raised',
+                    media.kind === 'VIDEO' ? 'aspect-video' : 'aspect-[4/5]',
+                  )}
+                >
+                  {/* Fayl ustiga bosilsa to'liq kartochka ochiladi */}
+                  <Link
+                    href={`/admin/media/${media.id}`}
+                    aria-label="Faylni ochish"
+                    className="absolute inset-0"
+                  >
+                    <MediaThumb
+                      media={media}
                       sizes="(max-width: 640px) 46vw, 22vw"
-                      className="object-cover transition-transform hover:scale-105"
+                      className="transition-transform hover:scale-105"
                     />
                   </Link>
                   <button

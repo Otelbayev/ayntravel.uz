@@ -31,6 +31,32 @@ export const ALLOWED_UPLOAD_MIME = [
   'image/avif',
 ] as const;
 
+/**
+ * Hero fon videosi uchun cheklovlar.
+ *
+ * 48MB — ataylab qattiq chegara: video multer'ning `memoryStorage` sida,
+ * ya'ni butunlay RAM'da ushlanadi. Undan oshirish uchun `diskStorage` va
+ * oqimli `storage.put` kerak bo'ladi.
+ */
+export const MAX_VIDEO_UPLOAD_BYTES = 48 * 1024 * 1024; // 48MB
+export const ALLOWED_VIDEO_MIME = ['video/mp4', 'video/webm'] as const;
+
+/** Media turi — rasm yoki video. Prisma'dagi `MediaKind` enum bilan bir xil. */
+export const MEDIA_KINDS = ['IMAGE', 'VIDEO'] as const;
+export type MediaKind = (typeof MEDIA_KINDS)[number];
+
+/**
+ * Hero slayd-shou chegaralari.
+ *
+ * 6 ta — bejiz emas: barcha slaydlar bir vaqtda DOM'ga chiziladi (krossfeyd
+ * bo'sh to'rtburchakka tushmasligi uchun), shuning uchun soni cheklanishi kerak.
+ */
+export const HERO_MAX_SLIDES = 6;
+export const HERO_MIN_INTERVAL_MS = 3000;
+export const HERO_MAX_INTERVAL_MS = 20000;
+export const HERO_DEFAULT_INTERVAL_MS = 6000;
+export const HERO_DEFAULT_OVERLAY_OPACITY = 0.55;
+
 /** Lid qaysi joydan kelganini bilish uchun. Admin panelda filtr sifatida ishlatiladi. */
 export const LEAD_SOURCES = [
   'hero',

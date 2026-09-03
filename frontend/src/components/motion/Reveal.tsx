@@ -31,6 +31,8 @@ interface RevealProps {
   className?: string;
   /** Element ekranning qaysi qismiga kirganda ishga tushsin (0–1). */
   amount?: number;
+  /** Qo'shimcha blur — kontent "fokusga kelgandek" chiqadi. */
+  blur?: boolean;
 }
 
 export function Reveal({
@@ -39,6 +41,7 @@ export function Reveal({
   delay = 0,
   className,
   amount = 0.25,
+  blur = false,
 }: RevealProps) {
   const reduced = useReducedMotion();
 
@@ -47,11 +50,12 @@ export function Reveal({
   const offset = OFFSET[direction];
 
   const variants: Variants = {
-    hidden: { opacity: 0, x: offset.x, y: offset.y },
+    hidden: { opacity: 0, x: offset.x, y: offset.y, ...(blur && { filter: 'blur(8px)' }) },
     visible: {
       opacity: 1,
       x: 0,
       y: 0,
+      ...(blur && { filter: 'blur(0px)' }),
       transition: { duration: 0.65, delay, ease: [0.16, 1, 0.3, 1] },
     },
   };

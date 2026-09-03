@@ -10,6 +10,14 @@
 import { z } from 'zod';
 import { contentStatusSchema, slugSchema, paginationSchema } from './common';
 import { MEAL_PLANS } from '../enums';
+import {
+  HERO_DEFAULT_INTERVAL_MS,
+  HERO_DEFAULT_OVERLAY_OPACITY,
+  HERO_MAX_INTERVAL_MS,
+  HERO_MAX_SLIDES,
+  HERO_MIN_INTERVAL_MS,
+  MEDIA_KINDS,
+} from '../constants';
 
 /** Har bir nashr etiladigan model uchun umumiy SEO maydonlari. */
 const seoFields = {
@@ -132,12 +140,65 @@ export const mediaUpdateSchema = z.object({
   altRu: z.string().max(300).optional().or(z.literal('')),
 });
 
+/** Media ro'yxatini turi bo'yicha filtrlash — picker rasm yoki videoni ko'rsatadi. */
+export const mediaQuerySchema = paginationSchema.extend({
+  kind: z.enum(MEDIA_KINDS).optional(),
+});
+
+/**
+ * Hero foni.
+ *
+ * HAR BIR maydonda `.default()` bor — bu ataylab: bazadagi eski yoki chala
+ * JSON `safeParse` dan to'liq obyekt bo'lib chiqishi kerak
+ * (`normalizeHeroBackground()` shunga tayanadi).
+ */
+export const heroBackgroundSchema = z.object({
+  mode: z.enum(['gradient', 'slideshow', 'video']).default('gradient'),
+  slideIds: z.array(z.string().min(1).max(40)).max(HERO_MAX_SLIDES).default([]),
+  videoSource: z.enum(['none', 'upload', 'url']).default('none'),
+  videoMediaId: z.string().min(1).max(40).nullable().default(null),
+  videoUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .refine((v) => v === '' || /^https?:\/\/.+\.(mp4|webm)(\?.*)?$/i.test(v), {
+      message: 'Video havolasi .mp4 yoki .webm bilan tugashi kerak',
+    })
+    .default(''),
+  videoPosterId: z.string().min(1).max(40).nullable().default(null),
+  intervalMs: z.coerce
+    .number()
+    .int()
+    .min(HERO_MIN_INTERVAL_MS)
+    .max(HERO_MAX_INTERVAL_MS)
+    .default(HERO_DEFAULT_INTERVAL_MS),
+  kenBurns: z.boolean().default(true),
+  overlayOpacity: z.coerce.number().min(0).max(0.9).default(HERO_DEFAULT_OVERLAY_OPACITY),
+});
+
 /** Sozlamalar — erkin key/value. Qiymat har qanday JSON bo'lishi mumkin. */
 export const siteSettingSchema = z.object({
   key: z.string().min(1).max(80),
   value: z.unknown(),
 });
-export const siteSettingsBulkSchema = z.record(z.string().max(80), z.unknown());
+
+/**
+ * Ommaviy saqlash. Qolgan kalitlar erkin, lekin `heroBackground` — tuzilmali
+ * obyekt, shuning uchun u yozilishidan oldin tekshiriladi.
+ */
+export const siteSettingsBulkSchema = z
+  .record(z.string().max(80), z.unknown())
+  .superRefine((obj, ctx) => {
+    if (obj.heroBackground === undefined) return;
+    const parsed = heroBackgroundSchema.safeParse(obj.heroBackground);
+    if (!parsed.success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['heroBackground'],
+        message: parsed.error.issues[0]?.message ?? 'Hero foni noto‘g‘ri',
+      });
+    }
+  });
 
 /** Ochiq turlar ro'yxati uchun filtrlar (/turlar sahifasi). */
 export const tourQuerySchema = paginationSchema.extend({

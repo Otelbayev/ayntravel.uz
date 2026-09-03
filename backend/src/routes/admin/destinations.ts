@@ -6,15 +6,24 @@ import { ok } from '../../utils/respond.js';
 import { notFound, conflict } from '../../utils/errors.js';
 import { validate } from '../../middleware/validate.js';
 import { destinationInclude, toDestination } from '../../services/dto.js';
-import { CacheTags, localizedPaths, revalidate } from '../../services/revalidate.js';
+import { CacheTags, entityTags, localizedPaths, revalidate } from '../../services/revalidate.js';
 import { logAudit } from '../../services/audit.js';
 
 export const adminDestinationsRouter: Router = Router();
 
 const patchSchema = destinationSchema.partial();
+
+/**
+ * `tours` tegi ataylab yo'q: yo'nalish tahriri turlar ro'yxatiga ta'sir
+ * qilmaydi, uni ham yangilash butun tur keshini bekorga kuydiradi.
+ */
 const touch = (slug?: string) =>
   revalidate({
-    tags: [CacheTags.destinations, CacheTags.tours, CacheTags.sitemap],
+    tags: [
+      CacheTags.destinations,
+      CacheTags.sitemap,
+      ...(slug ? [entityTags.destination(slug)] : []),
+    ],
     paths: [...localizedPaths.lists(), ...(slug ? localizedPaths.destination(slug) : [])],
   });
 

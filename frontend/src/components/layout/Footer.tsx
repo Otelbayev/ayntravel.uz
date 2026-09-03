@@ -1,19 +1,22 @@
 import { getTranslations } from 'next-intl/server';
 import Image from 'next/image';
 import { Instagram, Mail, MapPin, Phone, Send, Clock } from 'lucide-react';
-import type { DestinationDTO, Locale, SiteSettings } from '@/shared';
+import type { Locale, SiteSettings } from '@/shared';
 import { pick } from '@/shared';
 import { Link } from '@/i18n/routing';
+import type { DestinationNavItem } from '@/lib/api';
 import { displayPhone } from '@/lib/format';
 
 interface FooterProps {
   settings: SiteSettings;
-  destinations: DestinationDTO[];
+  /** Faqat nom va slug — footerga hero rasmi va narx agregatsiyasi kerak emas. */
+  destinations: DestinationNavItem[];
   locale: Locale;
 }
 
 const NAV = [
   { href: '/turlar', key: 'tours' },
+  { href: '/yonalishlar', key: 'destinations' },
   { href: '/xizmatlar', key: 'services' },
   { href: '/blog', key: 'blog' },
   { href: '/biz-haqimizda', key: 'about' },

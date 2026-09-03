@@ -356,13 +356,13 @@
  * Shu tufayli `height: auto` ni animatsiya qilish muammosi chetlab o'tiladi.
  */
 @keyframes acc-down {
-  from { height: 0; opacity: 0; }
-  to { height: var(--radix-accordion-content-height); opacity: 1; }
+  from { height: 0; opacity: 0; transform: translateY(-4px); }
+  to { height: var(--radix-accordion-content-height); opacity: 1; transform: translateY(0); }
 }
 
 @keyframes acc-up {
-  from { height: var(--radix-accordion-content-height); opacity: 1; }
-  to { height: 0; opacity: 0; }
+  from { height: var(--radix-accordion-content-height); opacity: 1; transform: translateY(0); }
+  to { height: 0; opacity: 0; transform: translateY(-4px); }
 }
 
 /* Toast — o'ngdan sirg'alib chiqadi */

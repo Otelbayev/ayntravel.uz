@@ -101,6 +101,14 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             <SectionHeader
               eyebrow={t('destinations')}
               title={t('destinationsSubtitle')}
+              action={
+                <Button asChild variant="outline">
+                  <Link href="/yonalishlar">
+                    {tTour('viewAll')}
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </Link>
+                </Button>
+              }
             />
           </div>
           {/* Gorizontal tasma — konteynerdan tashqariga chiqadi */}

@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 
 const NAV = [
   { href: '/turlar', key: 'tours' },
+  { href: '/yonalishlar', key: 'destinations' },
   { href: '/xizmatlar', key: 'services' },
   { href: '/blog', key: 'blog' },
   { href: '/biz-haqimizda', key: 'about' },

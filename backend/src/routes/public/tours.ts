@@ -28,7 +28,16 @@ toursRouter.get(
 
     const where: Prisma.TourWhereInput = { status: 'PUBLISHED' };
 
-    if (q.destination) where.destination = { slug: q.destination };
+    // Slug'ni avval id'ga yechamiz: relation filtri join qiladi va
+    // `@@index([destinationId, status])` ishlamay qoladi.
+    if (q.destination) {
+      const dest = await prisma.destination.findUnique({
+        where: { slug: q.destination },
+        select: { id: true },
+      });
+      // Yo'nalish topilmasa hech narsa qaytmasligi kerak — bo'sh ro'yxat.
+      where.destinationId = dest?.id ?? '__none__';
+    }
     if (q.hot) where.isHot = true;
     if (q.featured) where.isFeatured = true;
     if (q.stars) where.hotelStars = { gte: q.stars };

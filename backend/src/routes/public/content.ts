@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Prisma } from '@prisma/client';
 import { paginationSchema } from '../../shared/index.js';
 import { prisma } from '../../db.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
@@ -18,9 +19,32 @@ import {
   toTour,
   tourInclude,
 } from '../../services/dto.js';
-import { getSettings } from '../../services/settings.js';
+import { getSettingsResolved } from '../../services/settings.js';
 
 export const contentRouter: Router = Router();
+
+/**
+ * Yo'nalishlar bo'yicha turlar soni va eng arzon narx — BITTA agregatsiyada.
+ *
+ * Ilgari ikkita ish bajarilardi: har qatorga korrelyatsiyalangan `_count`
+ * subquery VA to'liq `groupBy`. `groupBy` ikkala raqamni ham bitta skanda
+ * beradi. `destinationIds` bilan cheklaymiz — bosh sahifa 12 ta yo'nalish
+ * ko'rsatgani holda barcha turlarni skanerlash ortiqcha.
+ */
+async function tourStatsByDestination(destinationIds: string[]) {
+  if (destinationIds.length === 0) {
+    return new Map<string, { count: number; minPrice: Prisma.Decimal | null }>();
+  }
+  const rows = await prisma.tour.groupBy({
+    by: ['destinationId'],
+    where: { status: 'PUBLISHED', destinationId: { in: destinationIds } },
+    _count: { _all: true },
+    _min: { priceFrom: true },
+  });
+  return new Map(
+    rows.map((r) => [r.destinationId, { count: r._count._all, minPrice: r._min.priceFrom }]),
+  );
+}
 
 /** GET /api/destinations — faol yo'nalishlar, har biriga turlar soni va eng past narx. */
 contentRouter.get(
@@ -28,46 +52,85 @@ contentRouter.get(
   asyncHandler(async (_req, res) => {
     const rows = await prisma.destination.findMany({
       where: { isActive: true },
-      include: {
-        ...destinationInclude,
-        _count: { select: { tours: { where: { status: 'PUBLISHED' } } } },
-      },
+      include: destinationInclude,
       orderBy: [{ sortOrder: 'asc' }, { nameUz: 'asc' }],
     });
 
-    // Eng arzon narxni alohida so'rov bilan olamiz — kartochkada "500$ dan" ko'rsatiladi.
-    const minPrices = await prisma.tour.groupBy({
-      by: ['destinationId'],
-      where: { status: 'PUBLISHED' },
-      _min: { priceFrom: true },
-    });
-    const priceMap = new Map(minPrices.map((p) => [p.destinationId, p._min.priceFrom]));
+    const stats = await tourStatsByDestination(rows.map((r) => r.id));
 
     return ok(
       res,
-      rows.map((row) => toDestination({ ...row, minPrice: priceMap.get(row.id) ?? null })),
+      rows.map((row) => {
+        const s = stats.get(row.id);
+        return toDestination({
+          ...row,
+          _count: { tours: s?.count ?? 0 },
+          minPrice: s?.minPrice ?? null,
+        });
+      }),
     );
   }),
 );
 
-/** GET /api/destinations/:slug — yo'nalish landingi + shu yo'nalishdagi turlar. */
+/**
+ * GET /api/destinations/nav — header/footer navigatsiyasi uchun yengil ro'yxat.
+ *
+ * Layout HAR sahifada yo'nalishlarni yuklaydi; to'liq `/api/destinations` esa
+ * hero rasmlari va agregatsiyani ham tortadi. Navigatsiyaga faqat nom va slug
+ * kerak, shuning uchun alohida, arzon va uzoqroq keshlanadigan endpoint.
+ */
+contentRouter.get(
+  '/destinations/nav',
+  asyncHandler(async (_req, res) => {
+    const rows = await prisma.destination.findMany({
+      where: { isActive: true },
+      select: { id: true, slug: true, nameUz: true, nameRu: true },
+      orderBy: [{ sortOrder: 'asc' }, { nameUz: 'asc' }],
+    });
+    return ok(res, rows);
+  }),
+);
+
+/**
+ * GET /api/destinations/:slug — yo'nalish landingi + shu yo'nalishdagi turlar.
+ *
+ * Turlar sahifalanadi: ilgari qattiq `take: 24` edi va 25-turdan keyingilari
+ * landing sahifasidan umuman ochilmasdi. `total` bilan birga `minPrice` ham
+ * to'liq to'plamdan hisoblanadi — bosh sahifadagi narx bilan mos bo'lsin.
+ */
 contentRouter.get(
   '/destinations/:slug',
+  validate(paginationSchema, 'query'),
   asyncHandler(async (req, res) => {
+    const { page, pageSize } = validated<typeof paginationSchema>(req);
+
     const destination = await prisma.destination.findFirst({
       where: { slug: req.params.slug, isActive: true },
       include: destinationInclude,
     });
     if (!destination) throw notFound('Yo‘nalish topilmadi');
 
-    const tours = await prisma.tour.findMany({
-      where: { destinationId: destination.id, status: 'PUBLISHED' },
-      include: tourInclude,
-      orderBy: [{ departureDate: 'asc' }, { priceFrom: 'asc' }],
-      take: 24,
-    });
+    const where = { destinationId: destination.id, status: 'PUBLISHED' as const };
+    const [tours, stats] = await Promise.all([
+      prisma.tour.findMany({
+        where,
+        include: tourInclude,
+        orderBy: [{ departureDate: 'asc' }, { priceFrom: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      tourStatsByDestination([destination.id]),
+    ]);
+    const s = stats.get(destination.id);
 
-    return ok(res, { destination: toDestination(destination), tours: tours.map(toTour) });
+    return ok(res, {
+      destination: toDestination({
+        ...destination,
+        _count: { tours: s?.count ?? 0 },
+        minPrice: s?.minPrice ?? null,
+      }),
+      tours: paginate(tours.map(toTour), s?.count ?? 0, page, pageSize),
+    });
   }),
 );
 
@@ -165,7 +228,7 @@ contentRouter.get(
 contentRouter.get(
   '/settings',
   asyncHandler(async (_req, res) => {
-    return ok(res, await getSettings());
+    return ok(res, await getSettingsResolved());
   }),
 );
 
@@ -216,10 +279,7 @@ contentRouter.get(
         }),
         prisma.destination.findMany({
           where: { isActive: true },
-          include: {
-            ...destinationInclude,
-            _count: { select: { tours: { where: { status: 'PUBLISHED' } } } },
-          },
+          include: destinationInclude,
           orderBy: [{ sortOrder: 'asc' }],
           take: 12,
         }),
@@ -237,22 +297,23 @@ contentRouter.get(
           orderBy: { publishedAt: 'desc' },
           take: 3,
         }),
-        getSettings(),
+        getSettingsResolved(),
       ]);
 
-    const minPrices = await prisma.tour.groupBy({
-      by: ['destinationId'],
-      where: { status: 'PUBLISHED' },
-      _min: { priceFrom: true },
-    });
-    const priceMap = new Map(minPrices.map((p) => [p.destinationId, p._min.priceFrom]));
+    // Faqat qaytariladigan 12 ta yo'nalish bo'yicha — barcha turlarni skanerlamaymiz.
+    const stats = await tourStatsByDestination(destinations.map((d) => d.id));
 
     return ok(res, {
       hotTours: hotTours.map(toTour),
       featuredTours: featuredTours.map(toTour),
-      destinations: destinations.map((d) =>
-        toDestination({ ...d, minPrice: priceMap.get(d.id) ?? null }),
-      ),
+      destinations: destinations.map((d) => {
+        const s = stats.get(d.id);
+        return toDestination({
+          ...d,
+          _count: { tours: s?.count ?? 0 },
+          minPrice: s?.minPrice ?? null,
+        });
+      }),
       services: services.map(toService),
       testimonials: testimonials.map(toTestimonial),
       faqs: faqs.map(toFaq),

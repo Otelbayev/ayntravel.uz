@@ -26,6 +26,24 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   heroTitleRu: 'Начните путешествие с нами',
   heroSubtitleUz: 'Turlar • Aviachiptalar • Mehmonxonalar • Viza yordami',
   heroSubtitleRu: 'Туры • Авиабилеты • Отели • Визовая поддержка',
+  /*
+   * Backend'dagi `DEFAULT_SETTINGS` bilan bir xil bo'lishi kerak — bu fayl
+   * `sync-shared.mjs` qamroviga kirmaydi, qo'lda sinxronlanadi.
+   *
+   * `heroBackgroundResolved` ATAYLAB yo'q: API o'chganda u `undefined` bo'lib
+   * qolishi va hero oddiy gradientni chizishi kerak.
+   */
+  heroBackground: {
+    mode: 'gradient',
+    slideIds: [],
+    videoSource: 'none',
+    videoMediaId: null,
+    videoUrl: '',
+    videoPosterId: null,
+    intervalMs: 6000,
+    kenBurns: true,
+    overlayOpacity: 0.55,
+  },
   stats: { toursCount: 120, clientsCount: 5000, followersCount: 25900, yearsCount: 5 },
   defaultOgImage: null,
 };
