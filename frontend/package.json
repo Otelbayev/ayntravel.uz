@@ -5,11 +5,12 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "NEXT_PHASE=phase-production-build next build",
-    "start": "npm run pack && node --env-file-if-exists=.env dist/server.js",
+    "start": "next start -p 3000",
+    "start:standalone": "npm run pack && node --env-file-if-exists=.env dist/server.js",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "sync:shared": "node ../sync-shared.mjs",
-    "pack": "node scripts/pack.mjs"
+    "pack": "BUILD_STANDALONE=1 npm run build && node scripts/pack.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.2",
@@ -20,6 +21,7 @@
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-tabs": "^1.1.2",
     "@radix-ui/react-toast": "^1.2.4",
+    "@vercel/blob": "^2.8.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lenis": "^1.1.18",

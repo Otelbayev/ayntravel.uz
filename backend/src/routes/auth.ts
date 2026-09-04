@@ -33,11 +33,25 @@ const loginLimiter = rateLimit({
   },
 });
 
+/**
+ * Cookie qamrovi joylashuvga qarab o'zgaradi.
+ *
+ * COOKIE_DOMAIN bor (api.ayntravel.uz + ayntravel.uz umumiy `.ayntravel.uz`):
+ *   cookie same-site hisoblanadi, `lax` yetarli va CSRF'dan himoya qiladi.
+ *
+ * COOKIE_DOMAIN yo'q (frontend va API alohida `*.vercel.app` domenlarida):
+ *   brauzer uchun bu cross-site, `lax` cookie umuman yuborilmaydi va
+ *   admin panelga kirib bo'lmaydi — `none` + `secure` shart.
+ *
+ * Keyinchalik o'z domeningizga o'tsangiz faqat COOKIE_DOMAIN env'ini
+ * qo'yish kifoya: kod o'zi qattiqroq rejimga qaytadi.
+ */
 function cookieOptions(maxAgeMs: number): CookieOptions {
+  const crossSite = isProd && !env.COOKIE_DOMAIN;
   return {
     httpOnly: true,
     secure: isProd, // HTTPS'da faqat shifrlangan kanal orqali
-    sameSite: 'lax', // admin panel bir domenda — 'lax' yetarli va CSRF'dan himoya qiladi
+    sameSite: crossSite ? 'none' : 'lax',
     domain: env.COOKIE_DOMAIN,
     path: '/',
     maxAge: maxAgeMs,

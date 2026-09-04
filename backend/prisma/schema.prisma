@@ -6,11 +6,21 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Vercel funksiyalari Amazon Linux 2023 da ishlaydi. `native` lokal
+  // (macOS/Linux) uchun, `rhel-openssl-3.0.x` esa deploy uchun.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "postgresql"
+  // Ilova uchun — Neon pooler (pgbouncer). Serverless'da har bir
+  // funksiya alohida ulanish ochadi, pooler'siz baza limitga uriladi.
   url      = env("DATABASE_URL")
+  // Migratsiyalar uchun — pooler'siz to'g'ridan-to'g'ri ulanish:
+  // pgbouncer transaction rejimida DDL va advisory lock ishlamaydi.
+  // MAJBURIY: Prisma bu env'siz sxemani validatsiyadan o'tkazmaydi.
+  // Neon'da bu DATABASE_URL bilan bir xil, faqat hostda `-pooler` yo'q.
+  directUrl = env("DIRECT_URL")
 }
 
 enum UserRole {

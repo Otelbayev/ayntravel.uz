@@ -3,7 +3,8 @@
 import { useRef, useState } from 'react';
 import { Check, FilePlus2, ImagePlus, Loader2, Upload, X } from 'lucide-react';
 import type { MediaDTO, Paginated } from '@/shared';
-import { adminClient, AdminApiError } from '@/lib/admin-client';
+import { AdminApiError } from '@/lib/admin-client';
+import { uploadImages, uploadVideo } from '@/lib/media-upload';
 import { Button } from '@/components/ui/Button';
 import { useAdminResource } from '@/hooks/useAdminResource';
 import { EmptyState, ErrorBox, Spinner } from './ui';
@@ -139,20 +140,9 @@ function MediaPickerDialog({
 
       if (kind === 'video') {
         const file = files[0]!;
-        const meta = await probeVideo(file);
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('width', String(Math.round(meta.width)));
-        formData.append('height', String(Math.round(meta.height)));
-        formData.append('duration', String(Math.round(meta.duration)));
-        created = await adminClient.upload<MediaDTO[]>(
-          '/api/admin/media/upload-video',
-          formData,
-        );
+        created = await uploadVideo(file, await probeVideo(file));
       } else {
-        const formData = new FormData();
-        for (const file of Array.from(files).slice(0, 10)) formData.append('files', file);
-        created = await adminClient.upload<MediaDTO[]>('/api/admin/media/upload', formData);
+        created = await uploadImages(Array.from(files));
       }
 
       // Yangi fayllar ro'yxat boshiga qo'shiladi va darhol tanlanadi.

@@ -1,10 +1,10 @@
 'use client';
 
-import { Suspense, useState, type FormEvent } from 'react';
+import { Suspense, useEffect, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { LogIn, ShieldAlert } from 'lucide-react';
-import { adminClient, AdminApiError } from '@/lib/admin-client';
+import { adminClient, AdminApiError, API_BASE } from '@/lib/admin-client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 
@@ -13,6 +13,25 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  /*
+   * Allaqachon kirgan bo'lsa — panelga o'tkazamiz.
+   *
+   * Avval buni middleware cookie bo'yicha qilardi, lekin API alohida
+   * domenda bo'lganda cookie sayt domeniga yetib bormaydi. Sessiya bor-
+   * yo'qligini faqat backend'ning o'zidan so'rab bilish mumkin.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' })
+      .then((res) => {
+        if (res.ok && !cancelled) router.replace('/admin');
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

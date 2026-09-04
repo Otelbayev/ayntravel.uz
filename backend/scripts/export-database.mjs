@@ -71,20 +71,16 @@ function toPgUrl(url) {
 
 const pgUrl = toPgUrl(dbUrl);
 
-/** Boshlang'ich kontent jadvallari — mijoz ma'lumoti bo'lganlari kiritilmaydi. */
-const CONTENT_TABLES = [
-  'users',
-  'destinations',
-  'media',
-  'tours',
-  'tour_images',
-  'posts',
-  'services',
-  'faqs',
-  'testimonials',
-  'pages',
-  'site_settings',
-];
+/**
+ * Eksportga qo'shiladigan ma'lumot jadvallari.
+ *
+ * Ataylab BO'SH: `database.sql` faqat struktura bo'lishi kerak. Baza
+ * ochiq repoda yotadi, kontent esa admin panel orqali kiritiladi —
+ * demo ma'lumotni SQL faylga qotirib qo'yish yangi o'rnatishda faqat
+ * keyin qo'lda o'chiriladigan axlat qoldiradi. Admin hisobi ham bu
+ * yerda emas: `npm run db:seed:admin` uni parolni env'dan olib yaratadi.
+ */
+const CONTENT_TABLES = [];
 
 const TABLE_NOTES = {
   users: 'Admin va menejerlar. Parol argon2 bilan hashlanadi.',

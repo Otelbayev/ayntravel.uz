@@ -7,6 +7,7 @@ import { ok, paginate } from '../../utils/respond.js';
 import { notFound } from '../../utils/errors.js';
 import { validate, validated } from '../../middleware/validate.js';
 import { toTour, tourInclude } from '../../services/dto.js';
+import { background } from '../../utils/background.js';
 
 export const toursRouter: Router = Router();
 
@@ -96,9 +97,13 @@ toursRouter.get(
     if (!tour) throw notFound('Bunday tur topilmadi');
 
     // Ko'rishlar sonini fon rejimida oshiramiz — javobni kutib turmaydi.
-    void prisma.tour
-      .update({ where: { id: tour.id }, data: { viewCount: { increment: 1 } } })
-      .catch(() => undefined);
+    background(
+      prisma.tour.update({
+        where: { id: tour.id },
+        data: { viewCount: { increment: 1 } },
+      }),
+      { tourId: tour.id },
+    );
 
     const related = await prisma.tour.findMany({
       where: {

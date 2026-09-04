@@ -9,6 +9,7 @@ import { validate, validated } from '../../middleware/validate.js';
 import { leadInclude, toLead } from '../../services/dto.js';
 import { notifyLeadStatus } from '../../services/telegram.js';
 import { logAudit } from '../../services/audit.js';
+import { background } from '../../utils/background.js';
 
 export const adminLeadsRouter: Router = Router();
 
@@ -159,7 +160,7 @@ adminLeadsRouter.patch(
         where: { id: req.user!.sub },
         select: { name: true },
       });
-      void notifyLeadStatus(row, 'BOOKED', manager?.name ?? 'Menejer');
+      background(notifyLeadStatus(row, 'BOOKED', manager?.name ?? 'Menejer'));
     }
 
     return ok(res, toLead(row));

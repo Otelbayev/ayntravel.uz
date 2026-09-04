@@ -10,6 +10,7 @@ import { validate, validated } from '../../middleware/validate.js';
 import { toTour, tourInclude } from '../../services/dto.js';
 import { CacheTags, localizedPaths, revalidate } from '../../services/revalidate.js';
 import { logAudit } from '../../services/audit.js';
+import { background } from '../../utils/background.js';
 
 export const adminToursRouter: Router = Router();
 
@@ -134,7 +135,7 @@ adminToursRouter.post(
     });
     await syncGallery(created.id, galleryImageIds);
     await logAudit(req.user?.sub, 'tour', created.id, 'create', { slug: created.slug });
-    void touch(created.slug);
+    background(touch(created.slug));
 
     const full = await prisma.tour.findUnique({ where: { id: created.id }, include: tourInclude });
     return ok(res, toTour(full!), 201);
@@ -162,7 +163,7 @@ adminToursRouter.patch(
     });
 
     // Slug o'zgargan bo'lishi mumkin — eski va yangi manzilni ham yangilaymiz.
-    void touch(full!.slug);
+    background(touch(full!.slug));
     if (existing.slug !== full!.slug) void touch(existing.slug);
 
     return ok(res, toTour(full!));
@@ -174,7 +175,7 @@ adminToursRouter.delete(
   asyncHandler(async (req, res) => {
     const removed = await prisma.tour.delete({ where: { id: req.params.id } });
     await logAudit(req.user?.sub, 'tour', req.params.id, 'delete');
-    void touch(removed.slug);
+    background(touch(removed.slug));
     return ok(res, { id: req.params.id, deleted: true });
   }),
 );
@@ -201,7 +202,7 @@ adminToursRouter.post(
       include: tourInclude,
     });
     await logAudit(req.user?.sub, 'tour', row.id, `status:${status}`);
-    void touch(row.slug);
+    background(touch(row.slug));
     return ok(res, toTour(row));
   }),
 );

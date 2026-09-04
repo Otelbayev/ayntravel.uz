@@ -65,7 +65,14 @@ export async function revokeAllForUser(userId: string) {
   });
 }
 
-/** Muddati o'tgan tokenlarni tozalash (server startida chaqiriladi). */
-export async function purgeExpiredTokens() {
-  await prisma.refreshToken.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+/**
+ * Muddati o'tgan tokenlarni tozalaydi va o'chirilganlar sonini qaytaradi.
+ * Lokalda `server.ts` startda va har 12 soatda, Vercel'da esa
+ * `/api/cron/purge-tokens` orqali kuniga bir marta chaqiriladi.
+ */
+export async function purgeExpiredTokens(): Promise<number> {
+  const { count } = await prisma.refreshToken.deleteMany({
+    where: { expiresAt: { lt: new Date() } },
+  });
+  return count;
 }

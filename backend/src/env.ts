@@ -25,8 +25,8 @@ const envSchema = z.object({
   WEB_URL: z.string().url().default('http://localhost:3000'),
   REVALIDATE_SECRET: z.string().min(16).optional(),
 
-  /// Fayl saqlash: local (disk) yoki s3 (S3/R2/Spaces).
-  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  /// Fayl saqlash: local (disk), s3 (S3/R2/Spaces) yoki blob (Vercel Blob).
+  STORAGE_DRIVER: z.enum(['local', 's3', 'blob']).default('local'),
   UPLOAD_DIR: z.string().default('./uploads'),
   /// Rasmlar ochiq ko'rinadigan bazaviy URL (local uchun API manzili, s3 uchun CDN).
   ASSET_BASE_URL: z.string().default('http://localhost:4000/uploads'),
@@ -53,8 +53,17 @@ if (!parsed.success) {
   const issues = parsed.error.issues
     .map((i) => `  • ${i.path.join('.')}: ${i.message}`)
     .join('\n');
-  console.error(`\n❌ Env konfiguratsiyasi noto‘g‘ri:\n${issues}\n`);
-  process.exit(1);
+  const message = `Env konfiguratsiyasi noto‘g‘ri:\n${issues}`;
+  console.error(`\n❌ ${message}\n`);
+  /*
+   * `process.exit()` emas, `throw`.
+   *
+   * Serverless'da (Vercel) modul yuklanishi funksiya ichida sodir bo'ladi:
+   * `exit` u yerda sababsiz "runtime crashed" beradi, throw esa xato matnini
+   * loglarda ko'rsatadi. Node'da ishga tushganda ham natija bir xil —
+   * ushlanmagan xato jarayonni to'xtatadi.
+   */
+  throw new Error(message);
 }
 
 export const env = parsed.data;

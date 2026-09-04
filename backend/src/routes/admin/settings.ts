@@ -13,6 +13,7 @@ import {
 } from '../../services/settings.js';
 import { CacheTags, revalidatePaths } from '../../services/revalidate.js';
 import { logAudit } from '../../services/audit.js';
+import { background } from '../../utils/background.js';
 
 export const adminSettingsRouter: Router = Router();
 
@@ -67,7 +68,7 @@ adminSettingsRouter.put(
     const settings = await updateSettings(body);
     await logAudit(req.user?.sub, 'settings', undefined, 'update', Object.keys(body));
     // Sozlamalar footer/headerda — butun saytni yangilash kerak.
-    void revalidatePaths(Object.values(CacheTags));
+    background(revalidatePaths(Object.values(CacheTags)));
     return ok(res, settings);
   }),
 );

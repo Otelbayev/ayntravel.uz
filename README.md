@@ -231,25 +231,32 @@ Kontent nashr etilganda sayt keshi **darhol** yangilanadi (ISR).
 
 ## Deploy
 
-**To'liq yo'riqnoma:** [`DEPLOY.md`](./DEPLOY.md) — cPanel va VPS uchun.
+**To'liq yo'riqnoma:** [`DEPLOY.md`](./DEPLOY.md) — Vercel uchun.
 
-Qisqacha:
+Qisqacha: bitta repodan ikkita Vercel loyihasi — Root Directory
+`backend` (Other) va `frontend` (Next.js). Avval backend deploy
+qilinadi, uning URL'i frontend env'iga yoziladi, keyin frontend
+URL'i `CORS_ORIGINS` va `WEB_URL` sifatida backendga qaytariladi.
+
+Baza — Neon (yoki istalgan PostgreSQL 14+):
 
 ```bash
-# 1. Baza
-psql BAZA < database.sql
-
-# 2. Backend
-cd backend && npm install && npm run build && npm start
-
-# 3. Frontend
-cd frontend && npm install && npm run build && npm run pack
-#    natija: frontend/dist/ (~60 MB, npm install kerak emas)
-cd dist && node server.js
+cd backend
+npx prisma migrate deploy      # sxema
+SEED_ADMIN_EMAIL=... SEED_ADMIN_PASSWORD='...' npm run db:seed:admin
 ```
+
+`database.sql` — faqat struktura, hech qanday ma'lumotsiz. Kontent
+admin panel orqali kiritiladi.
 
 Hosting **PostgreSQL** qo'llab-quvvatlashi shart — sayt massiv ustunlari,
 JSONB va enum turlaridan foydalanadi.
+
+### cPanel / VPS
+
+Eski yo'l ham ishlaydi: backend'da `STORAGE_DRIVER=local`, frontend'da
+`npm run pack` (u `BUILD_STANDALONE=1` bilan qayta yig'adi) →
+`frontend/dist/` (~60 MB, `npm install` kerak emas).
 
 ---
 
