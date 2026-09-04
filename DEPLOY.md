@@ -47,6 +47,12 @@ SEED_ADMIN_PASSWORD='kuchli-parol' npm run db:seed:admin
 generate + tsc), barcha so'rovlarni `api/index.js` ga yo'naltirish va
 kunlik cron.
 
+Build buyrug'i oxirida `rm -f tsconfig.json` bor — bu ataylab. Sababi
+[`backend/api/index.js`](backend/api/index.js) izohida: tsconfig qolsa,
+Vercel builderi manbani o'z sozlamalari bilan qayta tekshiradi va
+ESM-nativ tiplar bilan keladigan paketlarda (helmet, pino, sharp,
+express-rate-limit) yolg'on `TS2349` beradi.
+
 ### Blob store
 
 **Storage → Blob → Create** va shu loyihaga ulang. `BLOB_READ_WRITE_TOKEN`
