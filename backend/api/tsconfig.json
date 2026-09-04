@@ -1,0 +1,24 @@
+{
+  "//": [
+    "Vercel'ning @vercel/node builderi funksiya kirish nuqtasi yonidan",
+    "tsconfig qidiradi. Bu fayl bo'lmasa u ildizdagi tsconfig.json ni topadi",
+    "va butun `src/**` ni O'Z sozlamalari bilan qayta tekshiradi — natijada",
+    "NodeNext hal qilinishi yo'qoladi va helmet kabi dual (ESM+CJS)",
+    "paketlar 'not callable' xatosini beradi.",
+    "Bu yerda qamrov faqat shu papkaga toraytiriladi: TypeScript'ni",
+    "`npm run build` (ildizdagi tsconfig) bajaradi, Vercel esa tayyor",
+    "`dist/` ni ishlatadi."
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["**/*.js"],
+  "exclude": ["../src", "../dist", "../node_modules"]
+}
