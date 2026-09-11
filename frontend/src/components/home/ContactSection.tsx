@@ -8,6 +8,7 @@ import { Reveal } from '@/components/motion/Reveal';
 interface Props {
   settings: SiteSettings;
   locale: Locale;
+  initialMessage?: string;
 }
 
 /**
@@ -17,7 +18,7 @@ interface Props {
  * iframe'i og'ir va sahifa tezligini pasaytiradi. Foydalanuvchi baribir
  * telefonidagi xarita ilovasida ochishni afzal ko'radi.
  */
-export function ContactSection({ settings, locale }: Props) {
+export function ContactSection({ settings, locale, initialMessage }: Props) {
   const t = useTranslations('contact');
 
   const address = locale === 'ru' ? settings.addressRu : settings.addressUz;
@@ -103,7 +104,7 @@ export function ContactSection({ settings, locale }: Props) {
             className="group relative block h-48 overflow-hidden rounded-card border border-line bg-surface-raised sm:h-56"
           >
             {/* Yengil xarita o'rnini bosuvchi: og'ir iframe o'rniga statik blok */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-navy-700 to-navy-950 transition-colors group-hover:from-navy-600">
+            <div data-tone="dark" className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-navy-700 to-navy-950 transition-colors group-hover:from-navy-600">
               <MapPin className="size-8 text-accent" aria-hidden="true" />
               <p className="px-4 text-center text-sm font-medium text-ink">{address}</p>
               <span className="text-xs font-semibold text-accent">{t('openMap')} →</span>
@@ -114,7 +115,7 @@ export function ContactSection({ settings, locale }: Props) {
 
       <Reveal direction="left">
         <div className="card-surface p-6 sm:p-8">
-          <LeadForm source="contact_page" phone={settings.phonePrimary} />
+          <LeadForm initialMessage={initialMessage} source="contact_page" phone={settings.phonePrimary} />
         </div>
       </Reveal>
     </div>

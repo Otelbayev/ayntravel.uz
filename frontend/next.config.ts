@@ -41,6 +41,14 @@ const nextConfig: NextConfig = {
     imageSizes: [200, 300, 400, 540],
   },
 
+  async rewrites() {
+    const backend = (process.env.API_INTERNAL_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
+    return [
+      { source: '/api/:path*', destination: `${backend}/api/:path*` },
+      { source: '/uploads/:path*', destination: `${backend}/uploads/:path*` },
+    ];
+  },
+
   async redirects() {
     return [
       // Eski/qisqa manzillar — foydalanuvchi odatda shularni yozadi.

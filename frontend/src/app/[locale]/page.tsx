@@ -9,6 +9,9 @@ import { Section, SectionHeader } from '@/components/ui/Section';
 import { Button } from '@/components/ui/Button';
 import { RevealGroup } from '@/components/motion/Reveal';
 import { JsonLd } from '@/components/seo/JsonLd';
+import { EDITORIAL_SERVICES, EDITORIAL_FAQS } from '@/lib/editorial';
+import { JourneySection } from '@/components/home/JourneySection';
+import { TravelInspiration } from '@/components/home/TravelInspiration';
 import { Hero } from '@/components/home/Hero';
 import { PriceTicker } from '@/components/home/PriceTicker';
 import { BentoTours } from '@/components/home/BentoTours';
@@ -58,9 +61,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const hotTours = data?.hotTours ?? [];
   const featuredTours = data?.featuredTours ?? [];
   const destinations = data?.destinations ?? [];
-  const services = data?.services ?? [];
+  const services = data?.services.length ? data.services : EDITORIAL_SERVICES;
   const testimonials = data?.testimonials ?? [];
-  const faqs = data?.faqs ?? [];
+  const faqs = data?.faqs.length ? data.faqs : EDITORIAL_FAQS;
   const posts = data?.posts ?? [];
 
   // Tasmada goryashiy va tanlangan turlar birga — takrorlanmasin.
@@ -71,6 +74,11 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   return (
     <>
       <Hero settings={settings} destinations={destinations} locale={locale} />
+
+      <Section id="explore">
+        <SectionHeader eyebrow={locale === 'ru' ? 'Вдохновение для путешествий' : 'Sayohat uchun ilhom'} title={locale === 'ru' ? 'Какое настроение у вашей мечты?' : 'Orzuingiz qaysi manzilda?'} subtitle={locale === 'ru' ? 'Выберите атмосферу — мы поможем найти подходящее путешествие.' : 'Kayfiyatni tanlang — mos sayohatni birga topamiz.'} />
+        <TravelInspiration locale={locale} />
+      </Section>
 
       {/* Narxlar birinchi ekrandan keyin darhol — «qanchaga?» savoliga javob */}
       <PriceTicker tours={tickerTours} locale={locale} />
@@ -135,6 +143,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           </RevealGroup>
         </Section>
       )}
+
+      <JourneySection locale={locale} />
 
       {services.length > 0 && (
         <Section id="services" className="bg-surface-sunken">

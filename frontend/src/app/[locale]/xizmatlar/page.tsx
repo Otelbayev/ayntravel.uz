@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { Locale } from '@/shared';
+import { EDITORIAL_SERVICES } from '@/lib/editorial';
 import { api } from '@/lib/api';
 import { buildMetadata } from '@/lib/seo';
 import { routing } from '@/i18n/routing';
@@ -39,7 +40,7 @@ export default async function ServicesPage({ params }: { params: Promise<{ local
     <div className="pt-24 lg:pt-28">
       <Section>
         <SectionHeader title={t('services')} subtitle={t('servicesSubtitle')} align="center" />
-        <ServicesSection services={services} locale={locale} />
+        <ServicesSection services={services.length ? services : EDITORIAL_SERVICES} locale={locale} />
       </Section>
 
       <Section className="bg-surface-sunken">

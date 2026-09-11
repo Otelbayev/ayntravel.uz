@@ -1,3 +1,4 @@
+import { escapeCsvCell } from '../../utils/csv.js';
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import { formatUzPhone, leadQuerySchema, updateLeadSchema } from '../../shared/index.js';
@@ -81,10 +82,7 @@ adminLeadsRouter.get(
       take: 5000,
     });
 
-    const escape = (value: unknown): string => {
-      const s = value === null || value === undefined ? '' : String(value);
-      return `"${s.replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
-    };
+    const escape = escapeCsvCell;
 
     const header = [
       'Sana',

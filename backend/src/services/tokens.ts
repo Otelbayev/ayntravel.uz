@@ -8,16 +8,37 @@ export interface AccessPayload {
   sub: string;
   email: string;
   role: UserRole;
+  sid: string;
 }
 
 export function signAccessToken(payload: AccessPayload): string {
   return jwt.sign(payload, env.JWT_ACCESS_SECRET, {
     expiresIn: env.ACCESS_TOKEN_TTL as jwt.SignOptions['expiresIn'],
+    algorithm: 'HS256',
+    issuer: 'ayntravel-api',
+    audience: 'ayntravel-admin',
   });
 }
 
-export function verifyAccessToken(token: string): AccessPayload {
-  return jwt.verify(token, env.JWT_ACCESS_SECRET) as AccessPayload;
+export function verifyAccessToken(token: string, forLogout = false): AccessPayload {
+  const value = jwt.verify(token, env.JWT_ACCESS_SECRET, {
+    algorithms: ['HS256'], issuer: 'ayntravel-api', audience: 'ayntravel-admin',
+    ignoreExpiration: forLogout,
+  });
+  if (typeof value === 'string' || typeof value.sub !== 'string' || typeof value.sid !== 'string' || !value.sid) {
+    throw new Error('Invalid access session');
+  }
+  return value as AccessPayload;
+}
+
+export async function resolveAccessSession(payload: AccessPayload): Promise<AccessPayload | null> {
+  const session = await prisma.refreshToken.findUnique({ where: { id: payload.sid }, include: { user: true } });
+  if (!session || session.userId !== payload.sub || session.revokedAt || session.expiresAt <= new Date() || !session.user.isActive) return null;
+  return { sub: session.user.id, email: session.user.email, role: session.user.role, sid: session.id };
+}
+
+export async function revokeSession(sid: string, userId: string) {
+  await prisma.refreshToken.updateMany({ where: { id: sid, userId, revokedAt: null }, data: { revokedAt: new Date() } });
 }
 
 const hash = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
@@ -26,13 +47,13 @@ const hash = (value: string) => crypto.createHash('sha256').update(value).digest
  * Refresh token bazada faqat hash ko'rinishida saqlanadi — baza sizib chiqsa ham
  * tokenlarni ishlatib bo'lmaydi.
  */
-export async function issueRefreshToken(userId: string, userAgent?: string): Promise<string> {
+export async function issueRefreshToken(userId: string, userAgent?: string): Promise<{ raw: string; sid: string }> {
   const raw = crypto.randomBytes(48).toString('base64url');
   const expiresAt = new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
-  await prisma.refreshToken.create({
+  const session = await prisma.refreshToken.create({
     data: { tokenHash: hash(raw), userId, expiresAt, userAgent: userAgent?.slice(0, 300) },
   });
-  return raw;
+  return { raw, sid: session.id };
 }
 
 export async function consumeRefreshToken(raw: string) {
@@ -44,11 +65,13 @@ export async function consumeRefreshToken(raw: string) {
   if (!record.user.isActive) return null;
 
   // Rotatsiya: eski token darhol bekor qilinadi, chaqiruvchi yangisini oladi.
-  await prisma.refreshToken.update({
-    where: { id: record.id },
-    data: { revokedAt: new Date() },
+  const nextRaw = crypto.randomBytes(48).toString('base64url');
+  const result = await prisma.refreshToken.updateMany({
+    where: { id: record.id, tokenHash: hash(raw), revokedAt: null, expiresAt: { gt: new Date() } },
+    data: { tokenHash: hash(nextRaw), expiresAt: new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 86_400_000) },
   });
-  return record.user;
+  if (result.count !== 1) return null;
+  return { user: record.user, raw: nextRaw, sid: record.id };
 }
 
 export async function revokeRefreshToken(raw: string) {

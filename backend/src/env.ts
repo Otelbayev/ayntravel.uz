@@ -47,7 +47,17 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 
-const parsed = envSchema.safeParse(process.env);
+const parsed = envSchema.superRefine((value, ctx) => {
+  if (value.NODE_ENV !== 'production') return;
+  if (value.IP_HASH_SALT === 'ayn-travel-dev-salt' || value.IP_HASH_SALT.length < 32) ctx.addIssue({ code: 'custom', path: ['IP_HASH_SALT'], message: 'Production requires a unique secret of at least 32 characters' });
+  if (!value.REVALIDATE_SECRET) ctx.addIssue({ code: 'custom', path: ['REVALIDATE_SECRET'], message: 'Production requires REVALIDATE_SECRET' });
+  if (value.JWT_ACCESS_SECRET === value.JWT_REFRESH_SECRET) ctx.addIssue({ code: 'custom', path: ['JWT_REFRESH_SECRET'], message: 'JWT secrets must be different' });
+  if (process.env.VERCEL && value.STORAGE_DRIVER === 'local') ctx.addIssue({ code: 'custom', path: ['STORAGE_DRIVER'], message: 'Vercel requires durable Blob or S3 storage' });
+  for (const url of [value.WEB_URL, ...value.CORS_ORIGINS.split(',').map((x) => x.trim()).filter(Boolean)]) {
+    try { const parsedUrl = new URL(url); if (parsedUrl.protocol !== 'https:' || /^(localhost|127\.0\.0\.1)$/.test(parsedUrl.hostname)) throw new Error(); }
+    catch { ctx.addIssue({ code: 'custom', path: ['WEB_URL', 'CORS_ORIGINS'], message: 'Production requires explicit public HTTPS origins' }); }
+  }
+}).safeParse(process.env);
 
 if (!parsed.success) {
   const issues = parsed.error.issues

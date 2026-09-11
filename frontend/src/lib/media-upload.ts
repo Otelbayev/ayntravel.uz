@@ -32,7 +32,7 @@ async function uploadOne(
   kind: 'IMAGE' | 'VIDEO',
   meta?: VideoMeta,
 ): Promise<MediaDTO[]> {
-  const { token, pathname } = await adminClient.post<{ token: string; pathname: string }>(
+  const { token, pathname, receipt } = await adminClient.post<{ token: string; pathname: string; receipt: string }>(
     '/api/admin/media/upload-token',
     { kind, filename: file.name, contentType: file.type },
   );
@@ -46,6 +46,7 @@ async function uploadOne(
 
   return adminClient.post<MediaDTO[]>('/api/admin/media/finalize', {
     kind,
+    receipt,
     blobUrl: blob.url,
     originalName: file.name,
     ...(meta && {

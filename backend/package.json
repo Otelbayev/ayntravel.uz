@@ -16,9 +16,11 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:admin": "tsx prisma/seed-admin.ts",
+    "db:seed:content": "tsx prisma/seed-content.ts",
     "db:export": "node scripts/export-database.mjs",
     "demo:images": "tsx scripts/generate-demo-images.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test": "tsx --test tests/*.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

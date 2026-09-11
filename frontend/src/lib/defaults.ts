@@ -22,10 +22,10 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   mapEmbedUrl: '',
   workingHoursUz: 'Dushanba–Shanba: 09:00–18:00',
   workingHoursRu: 'Понедельник–Суббота: 09:00–18:00',
-  heroTitleUz: 'Sayohatingizni biz bilan boshlang',
-  heroTitleRu: 'Начните путешествие с нами',
-  heroSubtitleUz: 'Turlar • Aviachiptalar • Mehmonxonalar • Viza yordami',
-  heroSubtitleRu: 'Туры • Авиабилеты • Отели • Визовая поддержка',
+  heroTitleUz: 'Dunyo kutmoqda. Siz tayyormisiz?',
+  heroTitleRu: 'Мир ждёт. Вы готовы?',
+  heroSubtitleUz: 'Okean sokinligidan yangi shaharlar shukuhigacha. Siz orzu qiling, sayohat tafsilotlarini bizga qoldiring.',
+  heroSubtitleRu: 'От тишины океана до ритма новых городов. Мечтайте, а детали путешествия доверьте нам.',
   /*
    * Backend'dagi `DEFAULT_SETTINGS` bilan bir xil bo'lishi kerak — bu fayl
    * `sync-shared.mjs` qamroviga kirmaydi, qo'lda sinxronlanadi.

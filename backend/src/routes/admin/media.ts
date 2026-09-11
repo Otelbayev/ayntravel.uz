@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
-import { del } from '@vercel/blob';
+import { del, head } from '@vercel/blob';
 import { z } from 'zod';
 import {
   ALLOWED_UPLOAD_MIME,
@@ -24,6 +24,7 @@ import { deleteVideoFile, storeVideo } from '../../services/videos.js';
 import { env } from '../../env.js';
 import { isMediaUsedInSettings } from '../../services/settings.js';
 import { logAudit } from '../../services/audit.js';
+import { signUploadReceipt, verifyUploadReceipt, readBoundedBody } from '../../services/upload-receipt.js';
 import { background } from '../../utils/background.js';
 
 export const adminMediaRouter: Router = Router();
@@ -98,6 +99,7 @@ adminMediaRouter.post(
   asyncHandler(async (req, res) => {
     // `validate` tozalangan qiymatni req.body ga qaytadan yozadi
     // (`validated()` esa faqat query uchun — Express 5 da u read-only).
+    if (env.STORAGE_DRIVER !== 'blob') throw badRequest('Direct uploads require Blob storage');
     const { kind, filename, contentType } = req.body as z.infer<typeof uploadTokenSchema>;
 
     const isVideo = kind === 'VIDEO';
@@ -127,18 +129,20 @@ adminMediaRouter.post(
       allowedContentTypes: [contentType],
       maximumSizeInBytes: isVideo ? MAX_VIDEO_UPLOAD_BYTES : MAX_UPLOAD_BYTES,
       addRandomSuffix: false,
-      allowOverwrite: true,
+      allowOverwrite: false,
       // 15 daqiqa — sekin internetda 48 MB video ulgurishi uchun yetarli,
       // token o'g'irlansa ham foydalanish oynasi tor.
       validUntil: Date.now() + 15 * 60 * 1000,
       cacheControlMaxAge: 31536000,
     });
 
-    return ok(res, { token, pathname });
+    const receipt = signUploadReceipt({ sub: req.user!.sub, sid: req.user!.sid, kind, pathname, contentType, originalName: filename });
+    return ok(res, { token, pathname, receipt });
   }),
 );
 
 const finalizeSchema = z.object({
+  receipt: z.string().min(1).max(4096),
   kind: z.enum(MEDIA_KINDS),
   blobUrl: z.string().url(),
   originalName: z.string().min(1).max(200),
@@ -154,24 +158,27 @@ adminMediaRouter.post(
   asyncHandler(async (req, res) => {
     const body = req.body as z.infer<typeof finalizeSchema>;
 
-    // URL faqat bizning store'imizdan bo'lsin — aks holda bu marshrut
-    // istalgan manzilni yuklab beradigan SSRF quroliga aylanadi.
-    const base = env.ASSET_BASE_URL.replace(/\/+$/, '');
-    if (!body.blobUrl.startsWith(`${base}/`)) {
-      throw badRequest('Fayl manzili noto‘g‘ri');
-    }
+    if (env.STORAGE_DRIVER !== 'blob') throw badRequest('Direct uploads require Blob storage');
+    let receipt;
+    try { receipt = verifyUploadReceipt(body.receipt, req.user!.sub, req.user!.sid); }
+    catch { throw badRequest('Yuklash ruxsati yaroqsiz yoki muddati tugagan'); }
+    if (receipt.kind !== body.kind || receipt.originalName !== body.originalName) throw badRequest('Fayl ma’lumotlari mos emas');
+    const uploaded = await head(receipt.pathname, { abortSignal: AbortSignal.timeout(8000) }).catch(() => null);
+    if (!uploaded || uploaded.pathname !== receipt.pathname || uploaded.url !== body.blobUrl || uploaded.contentType !== receipt.contentType) throw badRequest('Yuklangan fayl tekshiruvdan o‘tmadi');
+    const maxSize = body.kind === 'VIDEO' ? MAX_VIDEO_UPLOAD_BYTES : MAX_UPLOAD_BYTES;
+    if (uploaded.size <= 0 || uploaded.size > maxSize) throw badRequest('Fayl hajmi noto‘g‘ri');
 
     if (body.kind === 'VIDEO') {
-      const key = body.blobUrl.split('/').slice(-2).join('/');
+      const key = uploaded.pathname;
       const media = await prisma.media.create({
         data: {
           kind: 'VIDEO',
           filename: key.replace(/\.[^.]+$/, ''),
           originalName: body.originalName.slice(0, 200),
-          mimeType: body.blobUrl.endsWith('.webm') ? 'video/webm' : 'video/mp4',
+          mimeType: uploaded.contentType,
           width: body.width ?? 0,
           height: body.height ?? 0,
-          sizeBytes: 0,
+          sizeBytes: uploaded.size,
           variants: {},
           sourceUrl: body.blobUrl,
           durationSeconds: body.duration && body.duration > 0 ? body.duration : null,
@@ -184,9 +191,9 @@ adminMediaRouter.post(
       return ok(res, [toMedia(media)!], 201);
     }
 
-    const response = await fetch(body.blobUrl);
+    const response = await fetch(uploaded.url, { redirect: 'error', signal: AbortSignal.timeout(20_000) });
     if (!response.ok) throw badRequest('Yuklangan faylni o‘qib bo‘lmadi');
-    const buffer = Buffer.from(await response.arrayBuffer());
+    const buffer = await readBoundedBody(response, MAX_UPLOAD_BYTES);
 
     const processed = await processImage(buffer, body.originalName);
     const media = await prisma.media.create({

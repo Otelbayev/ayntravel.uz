@@ -3,7 +3,8 @@ import { SearchX } from 'lucide-react';
 import type { Locale } from '@/shared';
 import { api, safeApi } from '@/lib/api';
 import { buildMetadata, breadcrumbJsonLd, SITE_URL } from '@/lib/seo';
-import { routing } from '@/i18n/routing';
+import { Button } from '@/components/ui/Button';
+import { routing, Link } from '@/i18n/routing';
 import { Section, SectionHeader } from '@/components/ui/Section';
 import { RevealGroup } from '@/components/motion/Reveal';
 import { TourGrid } from '@/components/home/TourGrid';
@@ -101,7 +102,8 @@ export default async function ToursPage({
           <div className="mt-12 flex flex-col items-center gap-3 py-16 text-center">
             <SearchX className="size-12 text-ink-subtle" aria-hidden="true" />
             <h2 className="font-display text-xl font-bold text-ink">{tf('nothingFound')}</h2>
-            <p className="max-w-md text-sm text-ink-muted">{tf('nothingFoundHint')}</p>
+            <p className="max-w-md text-base text-ink-muted">{tf('nothingFoundHint')}</p>
+            <Button asChild className="mt-4"><Link href="/aloqa">{locale === 'ru' ? 'Подобрать тур с менеджером' : 'Menejer bilan tur tanlash'}</Link></Button>
           </div>
         )}
 

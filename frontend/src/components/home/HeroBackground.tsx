@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import type { Locale, ResolvedHeroBackground } from '@/shared';
+import Image from 'next/image';
 import { SmartImage } from '@/components/ui/SmartImage';
 
 interface Props {
   /** `undefined` — API o'chgan yoki hech narsa sozlanmagan: oddiy gradient. */
   config: ResolvedHeroBackground | undefined;
   locale: Locale;
+  paused?: boolean;
 }
 
 /** `--ease-out-expo` bilan bir xil — dizayn tizimidagi asosiy egri chiziq. */
@@ -20,7 +22,7 @@ const EASE = [0.16, 1, 0.3, 1] as const;
  * Barcha rejimlarda BAZAVIY GRADIENT birinchi chiziladi va hech qachon olib
  * tashlanmaydi — shu tufayli media yuklanmasa ham oq ekran ko'rinmaydi.
  */
-export function HeroBackground({ config, locale }: Props) {
+export function HeroBackground({ config, locale, paused = false }: Props) {
   const reduced = useReducedMotion();
 
   return (
@@ -28,11 +30,13 @@ export function HeroBackground({ config, locale }: Props) {
       {/* Brend gradienti — kafolatlangan darhol bo'yash va universal zaxira */}
       <div className="absolute inset-0 bg-gradient-to-b from-navy-950 via-navy-900 to-navy-950" />
 
+      {(!config || config.mode === 'gradient') && <ScenicBackground paused={paused} reduced={Boolean(reduced) || paused} />}
+
       {config?.mode === 'slideshow' && (
-        <Slideshow config={config} locale={locale} reduced={Boolean(reduced)} />
+        <Slideshow config={config} locale={locale} reduced={Boolean(reduced) || paused} />
       )}
       {config?.mode === 'video' && (
-        <VideoBackground config={config} locale={locale} reduced={Boolean(reduced)} />
+        <VideoBackground config={config} locale={locale} reduced={Boolean(reduced) || paused} />
       )}
 
       {config && config.mode !== 'gradient' && <Scrim opacity={config.overlayOpacity} />}
@@ -184,8 +188,16 @@ function VideoBackground({
     if (!mounted) return;
     // Safari gidratatsiyadan keyin qo'shilgan elementda avtoplay'ni ba'zan
     // rad etadi. Rad javobi yutiladi — poster o'z joyida qolaveradi.
-    void videoRef.current?.play().catch(() => {});
-  }, [mounted]);
+    const video = videoRef.current;
+    if (!video) return;
+    const sync = () => {
+      if (reduced || document.hidden) video.pause();
+      else void video.play().catch(() => {});
+    };
+    sync();
+    document.addEventListener('visibilitychange', sync);
+    return () => { video.pause(); document.removeEventListener('visibilitychange', sync); };
+  }, [mounted, reduced]);
 
   return (
     <>
@@ -224,4 +236,36 @@ function VideoBackground({
       )}
     </>
   );
+}
+
+/** Local poster loads first; video stays optional on constrained devices. */
+function ScenicBackground({ paused, reduced }: { paused: boolean; reduced: boolean }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const [load, setLoad] = useState(false);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    if (reduced || connection?.saveData || /2g/.test(connection?.effectiveType ?? '') || !matchMedia('(min-width: 768px)').matches) return;
+    const timer = setTimeout(() => setLoad(true), 900);
+    return () => clearTimeout(timer);
+  }, [reduced]);
+  useEffect(() => {
+    const video = ref.current;
+    if (!video || !root.current) return;
+    let visible = true;
+    const sync = () => {
+      if (paused || reduced || document.hidden || !visible) video.pause();
+      else void video.play().catch(() => {});
+    };
+    const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; sync(); });
+    observer.observe(root.current);
+    document.addEventListener('visibilitychange', sync);
+    sync();
+    return () => { observer.disconnect(); document.removeEventListener('visibilitychange', sync); video.pause(); };
+  }, [load, paused, reduced]);
+  return <div ref={root} className="absolute inset-0">
+    <Image src="/media/ocean.webp" alt="" fill priority sizes="100vw" className="object-cover" />
+    {load && <video ref={ref} muted loop playsInline preload="none" tabIndex={-1} onCanPlay={() => setReady(true)} onError={() => setReady(false)} className="absolute inset-0 size-full object-cover transition-opacity duration-1000" style={{ opacity: ready ? 1 : 0 }}><source src="/media/ocean.mp4" type="video/mp4" /></video>}
+  </div>;
 }

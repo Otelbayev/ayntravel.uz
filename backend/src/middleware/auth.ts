@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { UserRole } from '../shared/index.js';
-import { verifyAccessToken, type AccessPayload } from '../services/tokens.js';
+import { verifyAccessToken, resolveAccessSession, type AccessPayload } from '../services/tokens.js';
 import { forbidden, unauthorized } from '../utils/errors.js';
 
 export const ACCESS_COOKIE = 'ayn_access';
@@ -27,15 +27,18 @@ function extractToken(req: Request): string | null {
   return null;
 }
 
-export function requireAuth(req: Request, _res: Response, next: NextFunction) {
+export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
   const token = extractToken(req);
   if (!token) return next(unauthorized());
+  let payload: AccessPayload;
+  try { payload = verifyAccessToken(token); }
+  catch { return next(unauthorized('Sessiya muddati tugagan. Qaytadan kiring')); }
   try {
-    req.user = verifyAccessToken(token);
+    const user = await resolveAccessSession(payload);
+    if (!user) return next(unauthorized('Sessiya bekor qilingan. Qaytadan kiring'));
+    req.user = user;
     next();
-  } catch {
-    next(unauthorized('Sessiya muddati tugagan. Qaytadan kiring'));
-  }
+  } catch (error) { next(error); }
 }
 
 export function requireRole(...roles: UserRole[]) {
@@ -47,14 +50,11 @@ export function requireRole(...roles: UserRole[]) {
 }
 
 /** Foydalanuvchi bor bo'lsa aniqlaydi, bo'lmasa ham o'tkazadi (ixtiyoriy auth). */
-export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
+export async function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   const token = extractToken(req);
   if (token) {
-    try {
-      req.user = verifyAccessToken(token);
-    } catch {
-      /* e'tiborsiz qoldiriladi */
-    }
+    try { req.user = (await resolveAccessSession(verifyAccessToken(token))) ?? undefined; }
+    catch { /* Public routes do not require a session. */ }
   }
   next();
 }

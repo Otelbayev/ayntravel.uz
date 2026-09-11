@@ -39,12 +39,16 @@ async function main() {
 
   // Idempotent: qayta ishga tushirilsa parolni yangilaydi — unutilgan
   // parolni tiklashning eng qisqa yo'li ham shu.
-  const admin = await prisma.user.upsert({
+  const admin = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.upsert({
     where: { email },
     update: { passwordHash, isActive: true, role: 'ADMIN' },
     create: { email, name: 'AYN TRAVEL Admin', role: 'ADMIN', passwordHash },
   });
 
+    await tx.refreshToken.updateMany({ where: { userId: user.id, revokedAt: null }, data: { revokedAt: new Date() } });
+    return user;
+  });
   console.log(`✅ Admin tayyor: ${admin.email}`);
 }
 

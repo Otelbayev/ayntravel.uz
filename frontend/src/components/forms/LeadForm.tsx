@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { CheckCircle2, Phone, Send } from 'lucide-react';
 import { type LeadSource, normalizeUzPhone } from '@/shared';
@@ -14,6 +14,7 @@ import { Link } from '@/i18n/routing';
 
 interface LeadFormProps {
   source: LeadSource;
+  initialMessage?: string;
   tourId?: string;
   /** Izoh maydonini ko'rsatish (qisqa formalarda kerak emas). */
   withMessage?: boolean;
@@ -32,12 +33,15 @@ interface LeadFormProps {
  */
 export function LeadForm({
   source,
+  initialMessage,
   tourId,
   withMessage = true,
   phone,
   className,
   compact = false,
 }: LeadFormProps) {
+  const formId = useId();
+  const submitting = useRef(false);
   const t = useTranslations('form');
   const locale = useLocale() as 'uz' | 'ru';
 
@@ -61,6 +65,7 @@ export function LeadForm({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting.current) return;
     setErrors({});
     setServerError(null);
 
@@ -84,6 +89,7 @@ export function LeadForm({
       return;
     }
 
+    submitting.current = true;
     setStatus('sending');
 
     try {
@@ -113,6 +119,8 @@ export function LeadForm({
         setServerError(t('error'));
       }
       setStatus('error');
+    } finally {
+      submitting.current = false;
     }
   }
 
@@ -134,7 +142,7 @@ export function LeadForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className={cn('flex flex-col gap-4', className)} noValidate>
+    <form onSubmit={handleSubmit} className={cn('flex flex-col gap-4', className)} aria-busy={status === 'sending'} noValidate>
       {!compact && (
         <div className="mb-1">
           <h3 className="font-display text-2xl font-bold text-ink">{t('title')}</h3>
@@ -148,10 +156,10 @@ export function LeadForm({
         `display:none` emas — ba'zi botlar yashirin maydonlarni o'tkazib yuboradi.
       */}
       <div className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden="true">
-        <label htmlFor={`website-${source}`}>Website</label>
+        <label htmlFor={`website-${formId}`}>Website</label>
         <input
           type="text"
-          id={`website-${source}`}
+          id={`website-${formId}`}
           name="website"
           tabIndex={-1}
           autoComplete="off"
@@ -159,6 +167,8 @@ export function LeadForm({
       </div>
 
       <Input
+        id={`${formId}-name`}
+        maxLength={100}
         name="name"
         label={t('name')}
         placeholder={t('namePlaceholder')}
@@ -168,6 +178,7 @@ export function LeadForm({
       />
 
       <Input
+        id={`${formId}-phone`}
         name="phone"
         type="tel"
         inputMode="tel"
@@ -182,6 +193,8 @@ export function LeadForm({
 
       {withMessage && (
         <Textarea
+          id={`${formId}-message`}
+          defaultValue={initialMessage}
           name="message"
           label={t('message')}
           placeholder={t('messagePlaceholder')}

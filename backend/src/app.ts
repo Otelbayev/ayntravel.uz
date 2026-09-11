@@ -11,9 +11,10 @@ import { publicRouter } from './routes/public/index.js';
 import { adminRouter } from './routes/admin/index.js';
 import { authRouter } from './routes/auth.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { prisma } from './db.js';
+import { forbidden } from './utils/errors.js';
 import { purgeExpiredTokens } from './services/tokens.js';
 
-const allowVercelPreviews = corsOrigins.some((o) => o.endsWith('.vercel.app'));
 
 export function createApp(): Express {
   const app = express();
@@ -37,17 +38,7 @@ export function createApp(): Express {
       origin(origin, callback) {
         // Origin yo'q = server-to-server (Next.js SSR) yoki curl — ruxsat beriladi.
         if (!origin || corsOrigins.includes(origin)) return callback(null, true);
-        /*
-         * Vercel preview deploy'lari har safar yangi tasodifiy URL oladi
-         * (`ayntravel-web-git-<branch>-<team>.vercel.app`) — ularni
-         * CORS_ORIGINS ro'yxatida oldindan sanab bo'lmaydi. Ro'yxatda
-         * kamida bitta `.vercel.app` origin bo'lsagina shu subdomenlarga
-         * ruxsat beramiz: o'z domeniga ko'chgandan keyin qoida o'zi o'chadi.
-         */
-        if (allowVercelPreviews && /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) {
-          return callback(null, true);
-        }
-        callback(new Error(`CORS: ${origin} ga ruxsat yo‘q`));
+        callback(forbidden('Origin is not allowed'));
       },
       credentials: true, // auth cookie'lari uchun
     }),
@@ -78,6 +69,12 @@ export function createApp(): Express {
       }),
     );
   }
+
+  app.get('/ready', async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try { await prisma.$queryRaw`SELECT 1`; res.json({ ok: true, data: { status: 'ready' } }); }
+    catch { res.status(503).json({ ok: false, error: { code: 'DATABASE_UNAVAILABLE', message: 'Service unavailable' } }); }
+  });
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true, data: { status: 'up', time: new Date().toISOString() } });
