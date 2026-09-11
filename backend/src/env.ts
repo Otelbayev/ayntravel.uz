@@ -1,5 +1,46 @@
 import 'dotenv/config';
+import crypto from 'node:crypto';
 import { z } from 'zod';
+
+/*
+ * ── Vercel: qo'lda kiritiladigan maxfiy env'larsiz ishga tushish ──
+ *
+ * Neon ↔ Vercel integratsiyasi `DATABASE_URL` (pooler) va
+ * `DATABASE_URL_UNPOOLED` ni o'zi qo'shadi, Blob store esa
+ * `BLOB_READ_WRITE_TOKEN` ni. Qolgan sirlar qo'yilmagan bo'lsa, ular bitta
+ * master sirdan (APP_SECRET, bo'lmasa Blob tokeni) HMAC-SHA256 bilan
+ * yorliq bo'yicha hosil qilinadi: har biri alohida, barqaror (deploy'lar
+ * orasida o'zgarmaydi) va master sirsiz qayta tiklab bo'lmaydi.
+ * Env'da aniq qiymat berilsa — har doim o'sha ishlatiladi.
+ * Frontend `/api/revalidate` ham REVALIDATE_SECRET ni aynan shu usulda hosil qiladi.
+ */
+export function deriveSecret(label: string): string | undefined {
+  const master = process.env.APP_SECRET || process.env.BLOB_READ_WRITE_TOKEN;
+  if (!master) return undefined;
+  return crypto.createHmac('sha256', master).update(`ayntravel:${label}`).digest('base64url');
+}
+
+for (const [key, label] of [
+  ['JWT_ACCESS_SECRET', 'jwt-access'],
+  ['JWT_REFRESH_SECRET', 'jwt-refresh'],
+  ['IP_HASH_SALT', 'ip-hash'],
+  ['REVALIDATE_SECRET', 'revalidate'],
+] as const) {
+  if (!process.env[key]) {
+    const derived = deriveSecret(label);
+    if (derived) process.env[key] = derived;
+  }
+}
+
+// Neon integratsiyasi nomlari → Prisma kutgan nomlar.
+if (!process.env.DIRECT_URL && process.env.DATABASE_URL_UNPOOLED) {
+  process.env.DIRECT_URL = process.env.DATABASE_URL_UNPOOLED;
+}
+// Pooler (pgbouncer) orqali ulanishda Prisma'ga buni aytish shart.
+if (process.env.DATABASE_URL?.includes('-pooler.') && !process.env.DATABASE_URL.includes('pgbouncer=')) {
+  const sep = process.env.DATABASE_URL.includes('?') ? '&' : '?';
+  process.env.DATABASE_URL += `${sep}pgbouncer=true&connection_limit=1`;
+}
 
 /**
  * Barcha env o'zgaruvchilari shu yerda bir marta tekshiriladi.

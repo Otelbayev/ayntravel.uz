@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { NextResponse, type NextRequest } from 'next/server';
 
@@ -19,7 +20,11 @@ import { NextResponse, type NextRequest } from 'next/server';
  *    qolaveradi. `revalidatePath` aynan shu holatni hal qiladi.
  */
 export async function POST(request: NextRequest) {
-  const secret = process.env.REVALIDATE_SECRET;
+  // Backend `env.ts` dagi `deriveSecret('revalidate')` bilan bir xil hosil qilinadi.
+  const master = process.env.APP_SECRET || process.env.BLOB_READ_WRITE_TOKEN;
+  const secret =
+    process.env.REVALIDATE_SECRET ||
+    (master ? crypto.createHmac('sha256', master).update('ayntravel:revalidate').digest('base64url') : undefined);
 
   // Sir sozlanmagan bo'lsa endpoint umuman ishlamaydi — ochiq qoldirib
   // bo'lmaydi, aks holda har kim keshni tozalab, serverni yuklab tashlashi mumkin.
