@@ -1,7 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "export DIRECT_URL=\"${DIRECT_URL:-$DATABASE_URL_UNPOOLED}\" && npm run build && npm run db:deploy && npm run db:seed:content && rm -f tsconfig.json",
+  "buildCommand": "export DIRECT_URL=\"${DIRECT_URL:-$DATABASE_URL_UNPOOLED}\" && npm run build && npm run db:deploy && npm run db:seed:content && rm -f tsconfig.json && mkdir -p public",
+  "outputDirectory": "public",
   "functions": {
     "api/index.js": {
       "maxDuration": 60,
