@@ -435,3 +435,32 @@
   text-align: left;
 }
 .prose-tour th { color: var(--color-ink); font-weight: 700; }
+
+/* AYN editorial travel theme: shared surfaces keep the admin and public pages aligned. */
+@theme {
+  --color-gold-500: #d6b56b;
+  --color-gold-400: #e9ca87;
+  --color-gold-300: #f4dba5;
+  --color-paper-soft: #f3f5f6;
+  --radius-card: 1.5rem;
+}
+[data-tone='light'] {
+  color-scheme: light;
+  --color-ink: #0b1e3a;
+  --color-ink-muted: #4a5a72;
+  --color-surface: #fff;
+}
+.travel-hero { min-height: 850px; }
+.hero-shade { background: linear-gradient(90deg, rgb(5 15 34 / .92) 0%, rgb(5 15 34 / .73) 43%, rgb(5 15 34 / .16) 100%), linear-gradient(0deg, #050f22 0%, transparent 32%); }
+.hero-title { font-size: clamp(3rem, 5.8vw, 5.8rem); max-width: 850px; line-height: 1.04; letter-spacing: -.055em; font-weight: 700; text-wrap: balance; }
+.travel-button { display: inline-flex; min-height: 56px; align-items: center; gap: 1.5rem; padding: 1rem 1.5rem; border-radius: .75rem; background: var(--color-gold-400); color: var(--color-navy-950); font-weight: 700; font-size: .9375rem; transition: background .2s, transform .2s; }
+.travel-button:hover { background: var(--color-gold-300); transform: translateY(-2px); }
+.hero-postcard { padding: .7rem; border: 1px solid rgb(255 255 255 / .3); border-radius: 26px; background: rgb(255 255 255 / .09); box-shadow: 0 30px 100px rgb(0 0 0 / .2); backdrop-filter: blur(18px); transform: rotate(5deg); }
+.hero-search { box-shadow: 0 20px 60px rgb(0 0 0 / .18); }
+.journey-section { position: relative; background: #071630; overflow: clip; }
+.journey-globe { width: 100%; aspect-ratio: 1; position: relative; }
+.journey-globe canvas { display: block; width: 100%; height: 100%; }
+.journey-step { border-top: 1px solid rgb(255 255 255 / .16); padding-block: 2rem; }
+.journey-step:last-child { border-bottom: 1px solid rgb(255 255 255 / .16); }
+@media (max-width: 639px) { .travel-hero { min-height: auto; } .hero-title { font-size: clamp(2.75rem, 12vw, 4rem); } .hero-shade { background: linear-gradient(90deg, rgb(5 15 34 / .85), rgb(5 15 34 / .45)), linear-gradient(0deg, #050f22, transparent); } .hero-search { margin-top: 2.5rem; } }
+@media (prefers-reduced-motion: reduce) { .travel-button:hover { transform: none; } }

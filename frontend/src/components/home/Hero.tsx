@@ -1,224 +1,117 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
+import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { motion, useScroll, useTransform, useReducedMotion } from 'motion/react';
-import { ChevronDown, Search, Sparkles } from 'lucide-react';
+import { ArrowDown, ArrowUpRight, CalendarDays, Compass, MapPin, Pause, Play, Search, ShieldCheck } from 'lucide-react';
 import type { DestinationDTO, Locale, SiteSettings } from '@/shared';
 import { pick } from '@/shared';
-import { useRouter } from '@/i18n/routing';
-import { CountUp } from '@/components/motion/CountUp';
-import { HeroBackground } from '@/components/home/HeroBackground';
-import { Button } from '@/components/ui/Button';
+import { Link, useRouter } from '@/i18n/routing';
+import { HeroBackground } from './HeroBackground';
+import { TravelFilm } from './TravelFilm';
+import { Tilt } from '@/components/motion/Tilt';
 
-interface HeroProps {
-  settings: SiteSettings;
-  destinations: DestinationDTO[];
-  locale: Locale;
-}
-
-/**
- * Bosh ekran. Uchta qatlam turli tezlikda siljiydi (parallaks) — bu
- * chuqurlik hissini beradi va foydalanuvchini pastga scroll qilishga undaydi.
- *
- * LCP QAYSI ELEMENT — fon rejimiga bog'liq (admin paneldan tanlanadi):
- *  • gradient  — sarlavha matni; fon CSS gradienti, hech narsa kutmaydi;
- *  • slayd-shou — birinchi slayd rasmi, u `priority` bilan yuklanadi;
- *  • video     — poster rasmi. Video SSR'da umuman yo'q, u gidratatsiyadan
- *    keyin mount bo'ladi, ya'ni LCP'ni hech qachon kechiktira olmaydi.
- *
- * Har uch holatda ham brend gradienti birinchi chiziladi — oq ekran bo'lmaydi.
- */
-export function Hero({ settings, destinations, locale }: HeroProps) {
+export function Hero({ settings, destinations, locale }: { settings: SiteSettings; destinations: DestinationDTO[]; locale: Locale }) {
   const t = useTranslations('hero');
-  const tStats = useTranslations('stats');
+  const ru = locale === 'ru';
   const router = useRouter();
   const ref = useRef<HTMLElement>(null);
   const reduced = useReducedMotion();
+  const [paused, setPaused] = useState(false);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
+  const y = useTransform(scrollYProgress, [0, 1], [0, 180]);
+  const cardY = useTransform(scrollYProgress, [0, 1], [0, -110]);
+  const scale = useTransform(scrollYProgress, [0, 1], [1, 1.12]);
+  const title = ru ? settings.heroTitleRu : settings.heroTitleUz;
 
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ['start start', 'end start'],
-  });
-
-  // Matn fondan tezroq yuqoriga ketadi va asta so'nadi.
-  const textY = useTransform(scrollYProgress, [0, 1], ['0%', '55%']);
-  const opacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
-  const glowY = useTransform(scrollYProgress, [0, 1], ['0%', '25%']);
-
-  const heroTitle = locale === 'ru' ? settings.heroTitleRu : settings.heroTitleUz;
-  const heroSubtitle = locale === 'ru' ? settings.heroSubtitleRu : settings.heroSubtitleUz;
-
-  function handleSearch(event: React.FormEvent<HTMLFormElement>) {
+  function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const value = new FormData(event.currentTarget).get('q');
-    const search = typeof value === 'string' ? value.trim() : '';
-    router.push({ pathname: '/turlar', query: search ? { search } : {} } as never);
+    const form = new FormData(event.currentTarget);
+    const destination = String(form.get('destination') ?? '');
+    const nights = String(form.get('nights') ?? '');
+    router.push({ pathname: '/turlar', query: { ...(destination && { destination }), ...(nights && { nights }) } });
   }
 
-  const stats = [
-    { value: settings.stats.toursCount, label: tStats('tours'), suffix: '+' },
-    { value: settings.stats.clientsCount, label: tStats('clients'), suffix: '+' },
-    { value: settings.stats.followersCount, label: tStats('followers'), suffix: '' },
-    { value: settings.stats.yearsCount, label: tStats('years'), suffix: '' },
-  ];
-
   return (
-    <section
-      ref={ref}
-      // Hero — sahifadagi eng katta to'q blok. Oq fon ustida u brend
-      // kuchini saqlaydi va posterlardagi navy+oltin tilini takrorlaydi.
-      data-tone="dark"
-      className="relative flex min-h-[100svh] items-center overflow-hidden pt-20 pb-16"
-    >
-      {/* Fon: gradient / slayd-shou / video — adminda tanlanadi */}
-      <HeroBackground config={settings.heroBackgroundResolved} locale={locale} />
-
-      <motion.div
-        style={reduced ? undefined : { y: glowY }}
-        className="pointer-events-none absolute inset-0"
-        aria-hidden="true"
-      >
-        <div className="absolute top-[-10%] left-[10%] size-[36rem] rounded-full bg-gold-500/8 blur-[120px]" />
-        <div className="absolute right-[5%] bottom-[10%] size-[30rem] rounded-full bg-navy-500/25 blur-[100px]" />
+    <section ref={ref} data-tone="dark" className="travel-hero relative isolate overflow-hidden">
+      <motion.div className="absolute inset-0 -z-10" style={reduced ? undefined : { scale }}>
+        <HeroBackground config={settings.heroBackgroundResolved} locale={locale} paused={paused} />
       </motion.div>
-
-      {/* Nozik to'r — tekis fonga tekstura beradi */}
-      <div
-        className="absolute inset-0 opacity-[0.04]"
-        aria-hidden="true"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)',
-          backgroundSize: '64px 64px',
-        }}
-      />
-
-      <motion.div
-        style={reduced ? undefined : { y: textY, opacity }}
-        className="container-page relative z-10"
-      >
-        <div className="mx-auto max-w-4xl text-center">
-          <motion.span
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-6 inline-flex items-center gap-2 rounded-full border border-gold-500/30 bg-gold-500/8 px-4 py-2 text-xs font-semibold tracking-wide text-accent uppercase"
-          >
-            <Sparkles className="size-3.5" aria-hidden="true" />
-            {t('badge')}
-          </motion.span>
-
-          <motion.h1
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.08 }}
-            className="type-display"
-          >
-            <span className="text-gold-gradient">{heroTitle}</span>
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.16 }}
-            className="type-lead mx-auto mt-6 max-w-2xl"
-          >
-            {heroSubtitle}
-          </motion.p>
-
-          {/* Qidiruv */}
-          <motion.form
-            onSubmit={handleSearch}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.24 }}
-            className="mx-auto mt-9 flex w-full max-w-2xl flex-col gap-3 sm:flex-row"
-            role="search"
-          >
-            <div className="relative flex-1">
-              <Search
-                className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-ink-subtle"
-                aria-hidden="true"
-              />
-              <input
-                type="search"
-                name="q"
-                placeholder={t('searchPlaceholder')}
-                aria-label={t('searchPlaceholder')}
-                className="h-14 w-full rounded-xl border border-line-strong bg-ink/5 pr-4 pl-12 text-ink backdrop-blur-sm placeholder:text-ink-subtle focus:border-gold-500/60 focus:outline-none"
-              />
+      <div className="hero-shade absolute inset-0 -z-10" aria-hidden="true" />
+      <div className="container-page relative pt-32 pb-10 lg:pt-44">
+        <div className="grid items-center gap-12 lg:grid-cols-[1.5fr_1fr]">
+          <motion.div style={reduced ? undefined : { y }} className="relative z-10 max-w-3xl">
+            <div className="mb-7 flex items-center gap-3 text-sm font-medium tracking-[0.15em] uppercase">
+              <span className="h-px w-9 bg-gold-400" />
+              {ru ? 'Весь мир начинается с вас' : 'Butun dunyo sizdan boshlanadi'}
             </div>
-            <Button type="submit" size="lg" className="sm:w-auto">
-              {t('searchButton')}
-            </Button>
-          </motion.form>
+            <h1 className="hero-title">{title}</h1>
+            <p className="mt-7 max-w-lg text-base leading-relaxed text-white/80 sm:text-lg">
+              {ru ? settings.heroSubtitleRu : settings.heroSubtitleUz}
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-5">
+              <Link href="/turlar" className="travel-button">
+                {ru ? 'Выбрать путешествие' : 'Sayohatni tanlash'} <ArrowUpRight className="size-5" />
+              </Link>
+              <TravelFilm locale={locale} />
+            </div>
+            <p className="mt-9 flex items-center gap-2.5 text-sm text-white/75">
+              <ShieldCheck className="size-4 text-gold-300" aria-hidden="true" />
+              {ru ? 'Персональный подбор · Поддержка на каждом этапе' : 'Individual tanlov · Har bir bosqichda yordam'}
+            </p>
+          </motion.div>
 
-          {/* Tez yo'nalish linklari */}
-          {destinations.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.32 }}
-              className="mt-5 flex flex-wrap items-center justify-center gap-2"
-            >
-              {destinations.slice(0, 6).map((destination) => (
-                <button
-                  key={destination.id}
-                  type="button"
-                  onClick={() =>
-                    router.push({
-                      pathname: '/yonalishlar/[slug]',
-                      params: { slug: destination.slug },
-                    })
-                  }
-                  className="rounded-full border border-line-strong px-3.5 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:border-gold-500/50 hover:text-accent"
-                >
-                  {pick(destination as unknown as Record<string, unknown>, 'name', locale)}
-                </button>
-              ))}
-            </motion.div>
-          )}
-
-          {/* Statistika — raqamlar ko'rinishga kirganda sanaladi */}
-          <motion.dl
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="mx-auto mt-14 grid max-w-3xl grid-cols-2 gap-6 sm:grid-cols-4"
-          >
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center">
-                <dt className="sr-only">{stat.label}</dt>
-                <dd>
-                  <span className="text-gold-gradient font-display block text-3xl font-black sm:text-4xl">
-                    <CountUp value={stat.value} suffix={stat.suffix} />
-                  </span>
-                  <span className="mt-1 block text-xs text-ink-subtle sm:text-sm">
-                    {stat.label}
-                  </span>
-                </dd>
-              </div>
-            ))}
-          </motion.dl>
+          <motion.div style={reduced ? undefined : { y: cardY }} className="relative hidden justify-self-end lg:block">
+            <Tilt max={7} className="w-[300px] xl:w-[330px]">
+              <Link href={{ pathname: '/turlar', query: { search: ru ? 'Турция' : 'Turkiya' } }} className="hero-postcard group block">
+                <div className="relative aspect-[4/5] overflow-hidden rounded-[18px]">
+                  <Image src="/media/cappadocia.webp" alt={ru ? 'Воздушные шары над Каппадокией' : 'Kappadokiya uzra havo sharlari'} fill sizes="330px" className="object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-navy-950/80 via-transparent to-transparent" />
+                  <span className="absolute top-4 left-4 flex items-center gap-2 rounded-full bg-white/15 px-3 py-2 text-sm backdrop-blur-md"><Compass className="size-4" /> {ru ? 'Место для мечты' : 'Orzular manzili'}</span>
+                  <div className="absolute right-5 bottom-5 left-5 flex items-end justify-between">
+                    <div><p className="mb-2 text-sm text-white/75">{ru ? 'Турция' : 'Turkiya'}</p><h2 className="text-3xl">{ru ? 'Каппадокия' : 'Kappadokiya'}</h2></div>
+                    <span className="flex size-10 items-center justify-center rounded-full border border-white/40"><ArrowUpRight className="size-5" /></span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between px-2 pt-4 pb-2 text-sm"><span>{ru ? 'Новые впечатления ждут' : 'Yangi taassurotlar kutmoqda'}</span><span className="text-gold-300">01 / 03</span></div>
+              </Link>
+            </Tilt>
+            <div className="absolute -bottom-6 -left-14 flex items-center gap-3 rounded-2xl border border-white/20 bg-navy-900/70 px-5 py-4 shadow-xl backdrop-blur-xl">
+              <span className="flex size-11 items-center justify-center rounded-full bg-gold-400 text-navy-950"><MapPin className="size-5" /></span>
+              <div><p className="text-xs text-white/60">{ru ? 'Отправная точка' : 'Boshlanish nuqtasi'}</p><p className="mt-1 font-semibold">{ru ? 'Ташкент → Весь мир' : 'Toshkent → Butun dunyo'}</p></div>
+            </div>
+          </motion.div>
         </div>
-      </motion.div>
 
-      {/* Pastga suring ishorasi */}
-      <motion.div
-        style={reduced ? undefined : { opacity }}
-        className="absolute inset-x-0 bottom-8 flex justify-center"
-        aria-hidden="true"
-      >
-        <motion.div
-          animate={reduced ? undefined : { y: [0, 8, 0] }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-          className="flex flex-col items-center gap-1.5 text-ink-subtle"
-        >
-          <span className="text-[11px] tracking-widest uppercase">{t('scrollHint')}</span>
-          <ChevronDown className="size-4" />
-        </motion.div>
-      </motion.div>
+        <form onSubmit={search} role="search" aria-label={t('searchPlaceholder')} data-tone="light" className="hero-search relative z-20 mt-16 grid gap-4 rounded-2xl bg-white p-5 text-navy-900 sm:grid-cols-[1fr_1fr_auto] lg:mt-20 lg:p-6">
+          <label className="flex items-center gap-4 sm:border-r sm:border-navy-900/10 sm:pr-5">
+            <MapPin className="size-5 shrink-0 text-gold-ink" aria-hidden="true" />
+            <span className="block min-w-0 flex-1"><span className="mb-1 block text-sm font-semibold">{ru ? 'Куда отправимся?' : 'Qayerga boramiz?'}</span>
+              <select name="destination" className="w-full bg-transparent py-1 text-base text-navy-900/70" aria-label={ru ? 'Направление' : 'Yo‘nalish'}>
+                <option value="">{ru ? 'Все направления' : 'Barcha yo‘nalishlar'}</option>
+                {destinations.map((d) => <option key={d.id} value={d.slug}>{pick(d as unknown as Record<string, unknown>, 'name', locale)}</option>)}
+              </select>
+            </span>
+          </label>
+          <label className="flex items-center gap-4">
+            <CalendarDays className="size-5 shrink-0 text-gold-ink" aria-hidden="true" />
+            <span className="block flex-1"><span className="mb-1 block text-sm font-semibold">{ru ? 'Продолжительность' : 'Sayohat davomiyligi'}</span>
+              <select name="nights" className="w-full bg-transparent py-1 text-base text-navy-900/70" aria-label={ru ? 'Количество ночей' : 'Tunlar soni'}>
+                <option value="">{ru ? 'Любая' : 'Istalgan muddat'}</option>
+                {[3, 5, 7, 10, 14].map((n) => <option value={n} key={n}>{n} {ru ? 'ночей' : 'kecha'}</option>)}
+              </select>
+            </span>
+          </label>
+          <button type="submit" className="travel-button justify-center"><Search className="size-5" />{t('searchButton')}</button>
+        </form>
+        <div className="mt-7 flex items-center justify-between gap-3 text-xs text-white/65 sm:text-sm">
+          <a href="#explore" className="flex min-h-11 items-center gap-3 hover:text-white"><ArrowDown className="size-4" />{ru ? 'Листайте. Открывайте. Путешествуйте.' : 'Varaqlang. Kashf eting. Sayohat qiling.'}</a>
+          <button type="button" onClick={() => setPaused(!paused)} className="flex min-h-11 items-center gap-2 hover:text-white" aria-pressed={paused} aria-label={paused ? (ru ? 'Продолжить фон' : 'Fonni davom ettirish') : (ru ? 'Остановить фон' : 'Fonni to‘xtatish')}>
+            {paused ? <Play className="size-4" /> : <Pause className="size-4" />}<span className="hidden sm:inline">{ru ? 'Атмосфера путешествий' : 'Sayohat muhiti'}</span>
+          </button>
+        </div>
+      </div>
     </section>
   );
 }

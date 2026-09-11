@@ -7,7 +7,6 @@ import { ok } from '../../utils/respond.js';
 import { badRequest, notFound } from '../../utils/errors.js';
 import { validate } from '../../middleware/validate.js';
 import { toUser } from '../../services/dto.js';
-import { revokeAllForUser } from '../../services/tokens.js';
 import { logAudit } from '../../services/audit.js';
 
 export const adminUsersRouter: Router = Router();
@@ -69,10 +68,13 @@ adminUsersRouter.patch(
     if (body.email) data.email = body.email.toLowerCase();
     if (body.password) data.passwordHash = await argon2.hash(body.password);
 
-    const row = await prisma.user.update({ where: { id: req.params.id }, data });
-
-    // Parol yoki holat o'zgarsa barcha sessiyalar yopiladi.
-    if (body.password || body.isActive === false) await revokeAllForUser(row.id);
+    const row = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({ where: { id: req.params.id }, data });
+      if (body.password || body.isActive === false) {
+        await tx.refreshToken.updateMany({ where: { userId: updated.id, revokedAt: null }, data: { revokedAt: new Date() } });
+      }
+      return updated;
+    });
 
     await logAudit(req.user?.sub, 'user', row.id, 'update', Object.keys(body));
     return ok(res, toUser(row));

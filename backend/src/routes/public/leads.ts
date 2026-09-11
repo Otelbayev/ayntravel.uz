@@ -10,6 +10,7 @@ import { ok } from '../../utils/respond.js';
 import { badRequest } from '../../utils/errors.js';
 import { validate } from '../../middleware/validate.js';
 import { notifyNewLead } from '../../services/telegram.js';
+import { background } from '../../utils/background.js';
 
 export const leadsRouter: Router = Router();
 
@@ -97,28 +98,32 @@ leadsRouter.post(
     // Mijozga darhol javob qaytaramiz — Telegram sekin ishlasa ham forma tez yopiladi.
     ok(res, { id: lead.id, message: 'Arizangiz qabul qilindi' }, 201);
 
-    // Xabar fonda yuboriladi va natijasi bazaga yoziladi.
-    void notifyNewLead({
-      id: lead.id,
-      name: lead.name,
-      phone: lead.phone,
-      message: lead.message,
-      source: lead.source,
-      locale: lead.locale,
-      tourTitle,
-      tourSlug,
-      utm: lead.utm as Record<string, unknown> | null,
-      createdAt: lead.createdAt,
-    })
-      .then((sent) => {
-        if (sent) {
-          return prisma.lead.update({
-            where: { id: lead.id },
-            data: { notifiedAt: new Date() },
-          });
-        }
-        return undefined;
-      })
-      .catch((err) => logger.error({ err, leadId: lead.id }, 'Xabar yuborishda xato'));
+    /*
+     * Xabar fonda yuboriladi va natijasi bazaga yoziladi.
+     *
+     * `background()` shart: serverless'da javob yopilishi bilan funksiya
+     * muzlaydi va Telegram chaqiruvi (qayta urinishlari bilan sekundlar
+     * oladi) o'rtada uzilib qolardi — ariza bazada bo'lsa-da, menejer
+     * undan xabar topmasdi.
+     */
+    background(
+      notifyNewLead({
+        id: lead.id,
+        name: lead.name,
+        phone: lead.phone,
+        message: lead.message,
+        source: lead.source,
+        locale: lead.locale,
+        tourTitle,
+        tourSlug,
+        utm: lead.utm as Record<string, unknown> | null,
+        createdAt: lead.createdAt,
+      }).then((sent) =>
+        sent
+          ? prisma.lead.update({ where: { id: lead.id }, data: { notifiedAt: new Date() } })
+          : undefined,
+      ),
+      { leadId: lead.id },
+    );
   }),
 );

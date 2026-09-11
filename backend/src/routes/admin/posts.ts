@@ -10,6 +10,7 @@ import { validate, validated } from '../../middleware/validate.js';
 import { postInclude, toPost } from '../../services/dto.js';
 import { CacheTags, localizedPaths, revalidate } from '../../services/revalidate.js';
 import { logAudit } from '../../services/audit.js';
+import { background } from '../../utils/background.js';
 
 export const adminPostsRouter: Router = Router();
 
@@ -98,7 +99,7 @@ adminPostsRouter.post(
       include: postInclude,
     });
     await logAudit(req.user?.sub, 'post', row.id, 'create', { slug: row.slug });
-    void touch(row.slug);
+    background(touch(row.slug));
     return ok(res, toPost(row), 201);
   }),
 );
@@ -119,7 +120,7 @@ adminPostsRouter.patch(
       include: postInclude,
     });
     await logAudit(req.user?.sub, 'post', row.id, 'update');
-    void touch(row.slug);
+    background(touch(row.slug));
     return ok(res, toPost(row));
   }),
 );
@@ -129,7 +130,7 @@ adminPostsRouter.delete(
   asyncHandler(async (req, res) => {
     const removed = await prisma.post.delete({ where: { id: req.params.id } });
     await logAudit(req.user?.sub, 'post', req.params.id, 'delete');
-    void touch(removed.slug);
+    background(touch(removed.slug));
     return ok(res, { id: req.params.id, deleted: true });
   }),
 );

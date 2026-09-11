@@ -11,7 +11,8 @@ import type { ApiResponse } from '@/shared';
  *    menejer 15 daqiqada bir marta qayta login qilib o'tirmasligi kerak.
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+// Bo'sh qiymat = shu domen: `/api/*` next.config rewrites orqali backend'ga proksilanadi.
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 export class AdminApiError extends Error {
   constructor(
@@ -30,12 +31,17 @@ let refreshPromise: Promise<boolean> | null = null;
 
 async function refreshSession(): Promise<boolean> {
   if (!refreshPromise) {
-    refreshPromise = fetch(`${BASE}/api/auth/refresh`, {
+    const refresh = () => fetch(`${BASE}/api/auth/refresh`, {
       method: 'POST',
+      signal: AbortSignal.timeout(15_000),
       credentials: 'include',
     })
       .then((res) => res.ok)
-      .catch(() => false)
+      .catch(() => false);
+    refreshPromise = (async () => {
+      if (typeof navigator !== 'undefined' && navigator.locks) return await navigator.locks.request('ayntravel-auth-refresh', refresh);
+      return await refresh();
+    })()
       .finally(() => {
         // Keyingi 401 uchun yangi urinishga ruxsat beramiz.
         setTimeout(() => {
@@ -57,6 +63,7 @@ async function call<T>(path: string, options: Options = {}, isRetry = false): Pr
 
   const res = await fetch(`${BASE}${path}`, {
     ...rest,
+    signal: rest.signal ?? AbortSignal.timeout(formData || path === '/api/admin/media/finalize' ? 90_000 : 20_000),
     credentials: 'include',
     headers: {
       ...(body ? { 'Content-Type': 'application/json' } : {}),

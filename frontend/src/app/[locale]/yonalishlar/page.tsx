@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { Locale } from '@/shared';
+import { TravelInspiration } from '@/components/home/TravelInspiration';
 import { safeApi } from '@/lib/api';
 import { DEFAULT_SETTINGS } from '@/lib/defaults';
 import { breadcrumbJsonLd, buildMetadata, SITE_URL } from '@/lib/seo';
@@ -64,7 +65,7 @@ export default async function DestinationsPage({
           align="center"
         />
         {/* Birinchi qator ekranda ko'rinadi — faqat ularni oldindan yuklaymiz */}
-        <DestinationsSection destinations={destinations} locale={locale} priorityCount={4} />
+        {destinations.length ? <DestinationsSection destinations={destinations} locale={locale} priorityCount={4} /> : <TravelInspiration locale={locale} />}
       </Section>
 
       <Section className="bg-surface-sunken">

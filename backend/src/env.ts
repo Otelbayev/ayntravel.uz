@@ -1,5 +1,46 @@
 import 'dotenv/config';
+import crypto from 'node:crypto';
 import { z } from 'zod';
+
+/*
+ * ── Vercel: qo'lda kiritiladigan maxfiy env'larsiz ishga tushish ──
+ *
+ * Neon ↔ Vercel integratsiyasi `DATABASE_URL` (pooler) va
+ * `DATABASE_URL_UNPOOLED` ni o'zi qo'shadi, Blob store esa
+ * `BLOB_READ_WRITE_TOKEN` ni. Qolgan sirlar qo'yilmagan bo'lsa, ular bitta
+ * master sirdan (APP_SECRET, bo'lmasa Blob tokeni) HMAC-SHA256 bilan
+ * yorliq bo'yicha hosil qilinadi: har biri alohida, barqaror (deploy'lar
+ * orasida o'zgarmaydi) va master sirsiz qayta tiklab bo'lmaydi.
+ * Env'da aniq qiymat berilsa — har doim o'sha ishlatiladi.
+ * Frontend `/api/revalidate` ham REVALIDATE_SECRET ni aynan shu usulda hosil qiladi.
+ */
+export function deriveSecret(label: string): string | undefined {
+  const master = process.env.APP_SECRET || process.env.BLOB_READ_WRITE_TOKEN;
+  if (!master) return undefined;
+  return crypto.createHmac('sha256', master).update(`ayntravel:${label}`).digest('base64url');
+}
+
+for (const [key, label] of [
+  ['JWT_ACCESS_SECRET', 'jwt-access'],
+  ['JWT_REFRESH_SECRET', 'jwt-refresh'],
+  ['IP_HASH_SALT', 'ip-hash'],
+  ['REVALIDATE_SECRET', 'revalidate'],
+] as const) {
+  if (!process.env[key]) {
+    const derived = deriveSecret(label);
+    if (derived) process.env[key] = derived;
+  }
+}
+
+// Neon integratsiyasi nomlari → Prisma kutgan nomlar.
+if (!process.env.DIRECT_URL && process.env.DATABASE_URL_UNPOOLED) {
+  process.env.DIRECT_URL = process.env.DATABASE_URL_UNPOOLED;
+}
+// Pooler (pgbouncer) orqali ulanishda Prisma'ga buni aytish shart.
+if (process.env.DATABASE_URL?.includes('-pooler.') && !process.env.DATABASE_URL.includes('pgbouncer=')) {
+  const sep = process.env.DATABASE_URL.includes('?') ? '&' : '?';
+  process.env.DATABASE_URL += `${sep}pgbouncer=true&connection_limit=1`;
+}
 
 /**
  * Barcha env o'zgaruvchilari shu yerda bir marta tekshiriladi.
@@ -25,8 +66,8 @@ const envSchema = z.object({
   WEB_URL: z.string().url().default('http://localhost:3000'),
   REVALIDATE_SECRET: z.string().min(16).optional(),
 
-  /// Fayl saqlash: local (disk) yoki s3 (S3/R2/Spaces).
-  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  /// Fayl saqlash: local (disk), s3 (S3/R2/Spaces) yoki blob (Vercel Blob).
+  STORAGE_DRIVER: z.enum(['local', 's3', 'blob']).default('local'),
   UPLOAD_DIR: z.string().default('./uploads'),
   /// Rasmlar ochiq ko'rinadigan bazaviy URL (local uchun API manzili, s3 uchun CDN).
   ASSET_BASE_URL: z.string().default('http://localhost:4000/uploads'),
@@ -47,14 +88,33 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 
-const parsed = envSchema.safeParse(process.env);
+const parsed = envSchema.superRefine((value, ctx) => {
+  if (value.NODE_ENV !== 'production') return;
+  if (value.IP_HASH_SALT === 'ayn-travel-dev-salt' || value.IP_HASH_SALT.length < 32) ctx.addIssue({ code: 'custom', path: ['IP_HASH_SALT'], message: 'Production requires a unique secret of at least 32 characters' });
+  if (!value.REVALIDATE_SECRET) ctx.addIssue({ code: 'custom', path: ['REVALIDATE_SECRET'], message: 'Production requires REVALIDATE_SECRET' });
+  if (value.JWT_ACCESS_SECRET === value.JWT_REFRESH_SECRET) ctx.addIssue({ code: 'custom', path: ['JWT_REFRESH_SECRET'], message: 'JWT secrets must be different' });
+  if (process.env.VERCEL && value.STORAGE_DRIVER === 'local') ctx.addIssue({ code: 'custom', path: ['STORAGE_DRIVER'], message: 'Vercel requires durable Blob or S3 storage' });
+  for (const url of [value.WEB_URL, ...value.CORS_ORIGINS.split(',').map((x) => x.trim()).filter(Boolean)]) {
+    try { const parsedUrl = new URL(url); if (parsedUrl.protocol !== 'https:' || /^(localhost|127\.0\.0\.1)$/.test(parsedUrl.hostname)) throw new Error(); }
+    catch { ctx.addIssue({ code: 'custom', path: ['WEB_URL', 'CORS_ORIGINS'], message: 'Production requires explicit public HTTPS origins' }); }
+  }
+}).safeParse(process.env);
 
 if (!parsed.success) {
   const issues = parsed.error.issues
     .map((i) => `  • ${i.path.join('.')}: ${i.message}`)
     .join('\n');
-  console.error(`\n❌ Env konfiguratsiyasi noto‘g‘ri:\n${issues}\n`);
-  process.exit(1);
+  const message = `Env konfiguratsiyasi noto‘g‘ri:\n${issues}`;
+  console.error(`\n❌ ${message}\n`);
+  /*
+   * `process.exit()` emas, `throw`.
+   *
+   * Serverless'da (Vercel) modul yuklanishi funksiya ichida sodir bo'ladi:
+   * `exit` u yerda sababsiz "runtime crashed" beradi, throw esa xato matnini
+   * loglarda ko'rsatadi. Node'da ishga tushganda ham natija bir xil —
+   * ushlanmagan xato jarayonni to'xtatadi.
+   */
+  throw new Error(message);
 }
 
 export const env = parsed.data;

@@ -19,7 +19,8 @@ import type {
  * (odatda `http://127.0.0.1:4000`), brauzer esa ommaviy manzil orqali.
  */
 const INTERNAL_URL = process.env.API_INTERNAL_URL ?? 'http://localhost:4000';
-export const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+// Brauzerda bo'sh qiymat = shu domen (`/api/*` rewrites orqali backend'ga ketadi).
+export const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 const baseUrl = typeof window === 'undefined' ? INTERNAL_URL : PUBLIC_API_URL;
 
@@ -77,6 +78,7 @@ async function request<T>(path: string, options: FetchOptions = {}): Promise<T> 
 
   const res = await fetch(`${baseUrl}${path}`, {
     ...rest,
+    signal: rest.signal ?? AbortSignal.timeout(10_000),
     headers: {
       ...(body ? { 'Content-Type': 'application/json' } : {}),
       ...headers,

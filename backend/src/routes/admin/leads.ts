@@ -1,3 +1,4 @@
+import { escapeCsvCell } from '../../utils/csv.js';
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import { formatUzPhone, leadQuerySchema, updateLeadSchema } from '../../shared/index.js';
@@ -9,6 +10,7 @@ import { validate, validated } from '../../middleware/validate.js';
 import { leadInclude, toLead } from '../../services/dto.js';
 import { notifyLeadStatus } from '../../services/telegram.js';
 import { logAudit } from '../../services/audit.js';
+import { background } from '../../utils/background.js';
 
 export const adminLeadsRouter: Router = Router();
 
@@ -80,10 +82,7 @@ adminLeadsRouter.get(
       take: 5000,
     });
 
-    const escape = (value: unknown): string => {
-      const s = value === null || value === undefined ? '' : String(value);
-      return `"${s.replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
-    };
+    const escape = escapeCsvCell;
 
     const header = [
       'Sana',
@@ -159,7 +158,7 @@ adminLeadsRouter.patch(
         where: { id: req.user!.sub },
         select: { name: true },
       });
-      void notifyLeadStatus(row, 'BOOKED', manager?.name ?? 'Menejer');
+      background(notifyLeadStatus(row, 'BOOKED', manager?.name ?? 'Menejer'));
     }
 
     return ok(res, toLead(row));

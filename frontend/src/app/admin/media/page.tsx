@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Loader2, Trash2, Upload } from 'lucide-react';
 import type { MediaDTO, Paginated } from '@/shared';
 import { adminClient, AdminApiError } from '@/lib/admin-client';
+import { uploadImages } from '@/lib/media-upload';
 import { useToast } from '@/components/admin/Toast';
 import { useConfirm } from '@/components/admin/ConfirmDialog';
 import { AdminShell } from '@/components/admin/AdminShell';
@@ -39,12 +40,10 @@ export default function MediaPage() {
 
   async function upload(files: FileList | null) {
     if (!files?.length) return;
-    const formData = new FormData();
-    for (const file of Array.from(files).slice(0, 10)) formData.append('files', file);
 
     setUploading(true);
     try {
-      const created = await adminClient.upload<MediaDTO[]>('/api/admin/media/upload', formData);
+      const created = await uploadImages(Array.from(files));
       updateItems((prev) => [...created, ...prev]);
       toast.success(
         created.length === 1 ? 'Rasm yuklandi' : `${created.length} ta rasm yuklandi`,

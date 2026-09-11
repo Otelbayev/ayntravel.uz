@@ -8,6 +8,7 @@ import { notFound } from '../../utils/errors.js';
 import { validate, validated } from '../../middleware/validate.js';
 import { localizedPaths, revalidate } from '../../services/revalidate.js';
 import { logAudit } from '../../services/audit.js';
+import { background } from '../../utils/background.js';
 
 /** Prisma delegate'ining bizga kerakli minimal qismi. */
 interface Delegate {
@@ -98,7 +99,7 @@ export function createCrudRouter<T>(opts: CrudOptions<T>): Router {
       const data = opts.beforeWrite ? opts.beforeWrite(req.body) : req.body;
       const row = await delegate.create({ data, include: opts.include });
       await logAudit(req.user?.sub, opts.model, row.id, 'create', data);
-      void touch();
+      background(touch());
       return ok(res, opts.toDto(row as never), 201);
     }),
   );
@@ -114,7 +115,7 @@ export function createCrudRouter<T>(opts: CrudOptions<T>): Router {
         include: opts.include,
       });
       await logAudit(req.user?.sub, opts.model, req.params.id, 'update', data);
-      void touch();
+      background(touch());
       return ok(res, opts.toDto(row as never));
     }),
   );
@@ -124,7 +125,7 @@ export function createCrudRouter<T>(opts: CrudOptions<T>): Router {
     asyncHandler(async (req, res) => {
       await delegate.delete({ where: { id: req.params.id } });
       await logAudit(req.user?.sub, opts.model, req.params.id, 'delete');
-      void touch();
+      background(touch());
       return ok(res, { id: req.params.id, deleted: true });
     }),
   );

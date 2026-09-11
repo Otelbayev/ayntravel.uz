@@ -8,6 +8,7 @@ import { validate } from '../../middleware/validate.js';
 import { destinationInclude, toDestination } from '../../services/dto.js';
 import { CacheTags, entityTags, localizedPaths, revalidate } from '../../services/revalidate.js';
 import { logAudit } from '../../services/audit.js';
+import { background } from '../../utils/background.js';
 
 export const adminDestinationsRouter: Router = Router();
 
@@ -62,7 +63,7 @@ adminDestinationsRouter.post(
       include: destinationInclude,
     });
     await logAudit(req.user?.sub, 'destination', row.id, 'create', { slug: row.slug });
-    void touch(row.slug);
+    background(touch(row.slug));
     return ok(res, toDestination(row), 201);
   }),
 );
@@ -77,7 +78,7 @@ adminDestinationsRouter.patch(
       include: destinationInclude,
     });
     await logAudit(req.user?.sub, 'destination', row.id, 'update');
-    void touch(row.slug);
+    background(touch(row.slug));
     return ok(res, toDestination(row));
   }),
 );
@@ -93,7 +94,7 @@ adminDestinationsRouter.delete(
     }
     await prisma.destination.delete({ where: { id: req.params.id } });
     await logAudit(req.user?.sub, 'destination', req.params.id, 'delete');
-    void touch();
+    background(touch());
     return ok(res, { id: req.params.id, deleted: true });
   }),
 );

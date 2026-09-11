@@ -1,10 +1,14 @@
 import { Router } from 'express';
 import multer from 'multer';
+import { generateClientTokenFromReadWriteToken } from '@vercel/blob/client';
+import { del, head } from '@vercel/blob';
+import { z } from 'zod';
 import {
   ALLOWED_UPLOAD_MIME,
   ALLOWED_VIDEO_MIME,
   MAX_UPLOAD_BYTES,
   MAX_VIDEO_UPLOAD_BYTES,
+  MEDIA_KINDS,
   mediaQuerySchema,
   mediaUpdateSchema,
   type MediaVariants,
@@ -15,10 +19,13 @@ import { ok, paginate } from '../../utils/respond.js';
 import { badRequest, conflict, notFound } from '../../utils/errors.js';
 import { validate, validated } from '../../middleware/validate.js';
 import { mediaSelect, toMedia } from '../../services/dto.js';
-import { deleteImageFiles, processImage } from '../../services/images.js';
+import { deleteImageFiles, makeBaseName, processImage } from '../../services/images.js';
 import { deleteVideoFile, storeVideo } from '../../services/videos.js';
+import { env } from '../../env.js';
 import { isMediaUsedInSettings } from '../../services/settings.js';
 import { logAudit } from '../../services/audit.js';
+import { signUploadReceipt, verifyUploadReceipt, readBoundedBody } from '../../services/upload-receipt.js';
+import { background } from '../../utils/background.js';
 
 export const adminMediaRouter: Router = Router();
 
@@ -53,6 +60,165 @@ const uploadVideo = multer({
     cb(null, true);
   },
 });
+
+/*
+ * ══ To'g'ridan-to'g'ri Blob'ga yuklash ═══════════════════════════
+ *
+ * Vercel serverless funksiyasiga kiruvchi so'rov tanasi 4.5 MB bilan
+ * cheklangan — 12 MB rasm yoki 48 MB video quyidagi `/upload`
+ * marshrutiga umuman yetib bormaydi (413). Shuning uchun fayl
+ * brauzerdan to'g'ridan-to'g'ri Blob'ga ketadi, server esa faqat
+ * qisqa muddatli ruxsat tokenini beradi va natijani ro'yxatga oladi.
+ *
+ * Nega `handleUpload()` emas: uni chaqiradigan `@vercel/blob/client`
+ * `upload()` funksiyasi tokenni so'raganda `credentials: 'include'`
+ * QO'YMAYDI. API alohida domenda bo'lgani uchun auth cookie yetib
+ * bormaydi va `requireAuth` so'rovni rad etadi. O'z endpointimiz esa
+ * odatdagi `adminClient` orqali chaqiriladi — cookie joyida.
+ */
+
+const EXT_BY_MIME: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/avif': 'avif',
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+};
+
+const uploadTokenSchema = z.object({
+  kind: z.enum(MEDIA_KINDS),
+  filename: z.string().min(1).max(200),
+  contentType: z.string().min(1).max(100),
+});
+
+/** POST /api/admin/media/upload-token — brauzerga bir martalik yuklash ruxsati. */
+adminMediaRouter.post(
+  '/upload-token',
+  validate(uploadTokenSchema),
+  asyncHandler(async (req, res) => {
+    // `validate` tozalangan qiymatni req.body ga qaytadan yozadi
+    // (`validated()` esa faqat query uchun — Express 5 da u read-only).
+    if (env.STORAGE_DRIVER !== 'blob') throw badRequest('Direct uploads require Blob storage');
+    const { kind, filename, contentType } = req.body as z.infer<typeof uploadTokenSchema>;
+
+    const isVideo = kind === 'VIDEO';
+    const allowed = (isVideo ? ALLOWED_VIDEO_MIME : ALLOWED_UPLOAD_MIME) as readonly string[];
+    if (!allowed.includes(contentType)) {
+      throw badRequest(
+        isVideo
+          ? 'Faqat MP4 yoki WebM video yuklash mumkin'
+          : 'Faqat JPG, PNG, WebP yoki AVIF rasm yuklash mumkin',
+      );
+    }
+
+    const base = makeBaseName(filename);
+    const ext = EXT_BY_MIME[contentType] ?? 'bin';
+    /*
+     * Video yakuniy fayl — `storeVideo` bilan bir xil `YYYY-MM/nom.ext`
+     * shaklida bo'lishi SHART, chunki o'chirish kalitni URL oxiridagi
+     * ikki bo'lakdan tiklaydi. Rasm esa vaqtinchalik: `finalize` uni
+     * sharp bilan qayta ishlab, variantlarni yozadi va xomini o'chiradi.
+     */
+    const pathname = isVideo
+      ? `${new Date().toISOString().slice(0, 7)}/${base}.${ext}`
+      : `tmp/${base}.${ext}`;
+
+    const token = await generateClientTokenFromReadWriteToken({
+      pathname,
+      allowedContentTypes: [contentType],
+      maximumSizeInBytes: isVideo ? MAX_VIDEO_UPLOAD_BYTES : MAX_UPLOAD_BYTES,
+      addRandomSuffix: false,
+      allowOverwrite: false,
+      // 15 daqiqa — sekin internetda 48 MB video ulgurishi uchun yetarli,
+      // token o'g'irlansa ham foydalanish oynasi tor.
+      validUntil: Date.now() + 15 * 60 * 1000,
+      cacheControlMaxAge: 31536000,
+    });
+
+    const receipt = signUploadReceipt({ sub: req.user!.sub, sid: req.user!.sid, kind, pathname, contentType, originalName: filename });
+    return ok(res, { token, pathname, receipt });
+  }),
+);
+
+const finalizeSchema = z.object({
+  receipt: z.string().min(1).max(4096),
+  kind: z.enum(MEDIA_KINDS),
+  blobUrl: z.string().url(),
+  originalName: z.string().min(1).max(200),
+  width: z.coerce.number().int().min(0).optional(),
+  height: z.coerce.number().int().min(0).optional(),
+  duration: z.coerce.number().int().min(0).optional(),
+});
+
+/** POST /api/admin/media/finalize — Blob'ga tushgan faylni ro'yxatga oladi. */
+adminMediaRouter.post(
+  '/finalize',
+  validate(finalizeSchema),
+  asyncHandler(async (req, res) => {
+    const body = req.body as z.infer<typeof finalizeSchema>;
+
+    if (env.STORAGE_DRIVER !== 'blob') throw badRequest('Direct uploads require Blob storage');
+    let receipt;
+    try { receipt = verifyUploadReceipt(body.receipt, req.user!.sub, req.user!.sid); }
+    catch { throw badRequest('Yuklash ruxsati yaroqsiz yoki muddati tugagan'); }
+    if (receipt.kind !== body.kind || receipt.originalName !== body.originalName) throw badRequest('Fayl ma’lumotlari mos emas');
+    const uploaded = await head(receipt.pathname, { abortSignal: AbortSignal.timeout(8000) }).catch(() => null);
+    if (!uploaded || uploaded.pathname !== receipt.pathname || uploaded.url !== body.blobUrl || uploaded.contentType !== receipt.contentType) throw badRequest('Yuklangan fayl tekshiruvdan o‘tmadi');
+    const maxSize = body.kind === 'VIDEO' ? MAX_VIDEO_UPLOAD_BYTES : MAX_UPLOAD_BYTES;
+    if (uploaded.size <= 0 || uploaded.size > maxSize) throw badRequest('Fayl hajmi noto‘g‘ri');
+
+    if (body.kind === 'VIDEO') {
+      const key = uploaded.pathname;
+      const media = await prisma.media.create({
+        data: {
+          kind: 'VIDEO',
+          filename: key.replace(/\.[^.]+$/, ''),
+          originalName: body.originalName.slice(0, 200),
+          mimeType: uploaded.contentType,
+          width: body.width ?? 0,
+          height: body.height ?? 0,
+          sizeBytes: uploaded.size,
+          variants: {},
+          sourceUrl: body.blobUrl,
+          durationSeconds: body.duration && body.duration > 0 ? body.duration : null,
+          blurDataUrl: null,
+          uploadedById: req.user?.sub ?? null,
+        },
+        select: mediaSelect,
+      });
+      await logAudit(req.user?.sub, 'media', media.id, 'upload', { kind: 'VIDEO' });
+      return ok(res, [toMedia(media)!], 201);
+    }
+
+    const response = await fetch(uploaded.url, { redirect: 'error', signal: AbortSignal.timeout(20_000) });
+    if (!response.ok) throw badRequest('Yuklangan faylni o‘qib bo‘lmadi');
+    const buffer = await readBoundedBody(response, MAX_UPLOAD_BYTES);
+
+    const processed = await processImage(buffer, body.originalName);
+    const media = await prisma.media.create({
+      data: {
+        filename: processed.filename,
+        originalName: body.originalName.slice(0, 200),
+        mimeType: response.headers.get('content-type') ?? 'image/jpeg',
+        width: processed.width,
+        height: processed.height,
+        sizeBytes: processed.sizeBytes,
+        variants: processed.variants as never,
+        blurDataUrl: processed.blurDataUrl,
+        uploadedById: req.user?.sub ?? null,
+      },
+      select: mediaSelect,
+    });
+
+    // Xom fayl endi keraksiz — variantlar yozilgan. Yiqilsa ham media
+    // qatori yaratilgan, shuning uchun xatoni yutamiz.
+    background(del(body.blobUrl), { blobUrl: body.blobUrl });
+
+    await logAudit(req.user?.sub, 'media', media.id, 'upload', { count: 1 });
+    return ok(res, [toMedia(media)!], 201);
+  }),
+);
 
 adminMediaRouter.get(
   '/',

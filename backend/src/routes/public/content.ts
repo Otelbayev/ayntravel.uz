@@ -20,6 +20,7 @@ import {
   tourInclude,
 } from '../../services/dto.js';
 import { getSettingsResolved } from '../../services/settings.js';
+import { background } from '../../utils/background.js';
 
 export const contentRouter: Router = Router();
 
@@ -166,9 +167,13 @@ contentRouter.get(
     });
     if (!post) throw notFound('Maqola topilmadi');
 
-    void prisma.post
-      .update({ where: { id: post.id }, data: { viewCount: { increment: 1 } } })
-      .catch(() => undefined);
+    background(
+      prisma.post.update({
+        where: { id: post.id },
+        data: { viewCount: { increment: 1 } },
+      }),
+      { postId: post.id },
+    );
 
     const related = await prisma.post.findMany({
       where: { status: 'PUBLISHED', id: { not: post.id } },

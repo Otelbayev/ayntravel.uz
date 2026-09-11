@@ -86,7 +86,11 @@ export function TourFilters({ destinations, locale }: Props) {
         )}
       </div>
 
-      <div className={cn('mt-4 grid gap-3 lg:mt-0 lg:grid-cols-5', !open && 'hidden lg:grid')}>
+      <form onSubmit={(event) => { event.preventDefault(); apply('search', String(new FormData(event.currentTarget).get('search') ?? '').trim()); }} className="mb-4 flex gap-2" role="search">
+        <input type="search" name="search" key={current('search')} defaultValue={current('search')} aria-label={locale === 'ru' ? 'Поиск тура' : 'Tur qidirish'} placeholder={locale === 'ru' ? 'Страна, город или название тура' : 'Mamlakat, shahar yoki tur nomi'} className={selectStyles} />
+        <Button type="submit" disabled={isPending}>{locale === 'ru' ? 'Найти' : 'Qidirish'}</Button>
+      </form>
+      <div className={cn('mt-4 grid gap-3 lg:mt-0 lg:grid-cols-3', !open && 'hidden lg:grid')}>
         <div>
           <label htmlFor="f-destination" className="mb-1.5 block text-xs text-ink-subtle">
             {t('destination')}
@@ -118,6 +122,7 @@ export function TourFilters({ destinations, locale }: Props) {
             inputMode="numeric"
             placeholder="0"
             className={selectStyles}
+            key={current('minPrice')}
             defaultValue={current('minPrice')}
             onBlur={(e) => apply('minPrice', e.target.value)}
           />
@@ -135,6 +140,7 @@ export function TourFilters({ destinations, locale }: Props) {
             inputMode="numeric"
             placeholder="3000"
             className={selectStyles}
+            key={current('maxPrice')}
             defaultValue={current('maxPrice')}
             onBlur={(e) => apply('maxPrice', e.target.value)}
           />
@@ -159,6 +165,13 @@ export function TourFilters({ destinations, locale }: Props) {
           </select>
         </div>
 
+        <div>
+          <label htmlFor="f-nights" className="mb-1.5 block text-sm text-ink-subtle">{t('nights')}</label>
+          <select id="f-nights" className={selectStyles} value={current('nights')} onChange={(e) => apply('nights', e.target.value)}>
+            <option value="">{locale === 'ru' ? 'Любая длительность' : 'Istalgan muddat'}</option>
+            {[3, 5, 7, 10, 14].map((n) => <option value={n} key={n}>{n}</option>)}
+          </select>
+        </div>
         <div>
           <label htmlFor="f-sort" className="mb-1.5 block text-xs text-ink-subtle">
             {t('sort')}

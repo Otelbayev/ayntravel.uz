@@ -11,12 +11,16 @@ import { publicRouter } from './routes/public/index.js';
 import { adminRouter } from './routes/admin/index.js';
 import { authRouter } from './routes/auth.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { prisma } from './db.js';
+import { forbidden } from './utils/errors.js';
+import { purgeExpiredTokens } from './services/tokens.js';
+
 
 export function createApp(): Express {
   const app = express();
 
-  // Nginx yoki cPanel Passenger ortida ishlaydi — haqiqiy mijoz IP'si
-  // X-Forwarded-For sarlavhasidan olinadi.
+  // Vercel edge, Nginx yoki cPanel Passenger ortida ishlaydi — haqiqiy
+  // mijoz IP'si X-Forwarded-For sarlavhasidan olinadi.
   // Rate limit va IP hash to'g'ri ishlashi uchun bu majburiy.
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
@@ -34,7 +38,7 @@ export function createApp(): Express {
       origin(origin, callback) {
         // Origin yo'q = server-to-server (Next.js SSR) yoki curl — ruxsat beriladi.
         if (!origin || corsOrigins.includes(origin)) return callback(null, true);
-        callback(new Error(`CORS: ${origin} ga ruxsat yo‘q`));
+        callback(forbidden('Origin is not allowed'));
       },
       credentials: true, // auth cookie'lari uchun
     }),
@@ -66,8 +70,36 @@ export function createApp(): Express {
     );
   }
 
+  app.get('/ready', async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try { await prisma.$queryRaw`SELECT 1`; res.json({ ok: true, data: { status: 'ready' } }); }
+    catch { res.status(503).json({ ok: false, error: { code: 'DATABASE_UNAVAILABLE', message: 'Service unavailable' } }); }
+  });
+
   app.get('/health', (_req, res) => {
     res.json({ ok: true, data: { status: 'up', time: new Date().toISOString() } });
+  });
+
+  /*
+   * Muddati o'tgan refresh tokenlarni tozalash.
+   *
+   * `server.ts` da bu 12 soatlik `setInterval` bilan bajariladi, lekin
+   * serverless'da uzoq yashaydigan jarayon yo'q — Vercel Cron kuniga bir
+   * marta shu manzilni chaqiradi (`vercel.json` → crons).
+   *
+   * Vercel so'rovga `Authorization: Bearer $CRON_SECRET` qo'yadi. Sir
+   * qo'yilmagan bo'lsa marshrutni umuman ochmaymiz: himoyasiz holda u
+   * bazani istalgan odam yuklashi mumkin bo'lgan tugmaga aylanadi.
+   */
+  app.get('/api/cron/purge-tokens', (req, res, next) => {
+    const secret = process.env.CRON_SECRET;
+    if (!secret || req.get('authorization') !== `Bearer ${secret}`) {
+      res.status(401).json({ ok: false, error: { code: 'UNAUTHORIZED', message: 'Ruxsat yo‘q' } });
+      return;
+    }
+    purgeExpiredTokens()
+      .then((purged) => res.json({ ok: true, data: { purged } }))
+      .catch(next);
   });
 
   app.use('/api/auth', authRouter);
